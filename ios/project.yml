@@ -40,6 +40,7 @@ targets:
         excludes: [ProviderHTMLParserTests.swift, YummyVideoParserTests.swift]
       - path: AniCrN/HLSProxy.swift
       - path: AniCrN/HLSPlaylist.swift
+      - path: AniCrN/MediaRouteCodec.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.anicrn.transporttests

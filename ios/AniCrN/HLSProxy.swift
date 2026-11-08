@@ -7,8 +7,7 @@ final class HLSProxy {
     private let headers: [String: String]
     private let session: URLSession
     private var listener: NWListener?
-    private var routes: [String: URL] = [:]
-    private var reverseRoutes: [URL: URL] = [:]
+    private let routeCodec = MediaRouteCodec()
     private var connections: [ObjectIdentifier: NWConnection] = [:]
     private var tasks: [ObjectIdentifier: URLSessionTask] = [:]
     private var port: UInt16 = 0
@@ -47,12 +46,8 @@ final class HLSProxy {
         }
     }
     private func route(_ url: URL) -> URL {
-        if let existing = reverseRoutes[url] { return existing }
-        let key = UUID().uuidString + "." + (url.pathExtension.isEmpty ? "bin" : url.pathExtension)
-        routes["/" + key] = url
-        let local = URL(string: "http://127.0.0.1:\(port)/\(key)")!
-        reverseRoutes[url] = local
-        return local
+        guard let path = try? routeCodec.encode(url) else { return URL(string: "http://127.0.0.1:\(port)/invalid")! }
+        return URL(string: "http://127.0.0.1:\(port)\(path)")!
     }
     private func accept(_ connection: NWConnection) {
         let id = ObjectIdentifier(connection)
@@ -83,7 +78,7 @@ final class HLSProxy {
     private func handle(_ connection: NWConnection, text: String) {
         let lines = text.components(separatedBy: "\r\n")
         let parts = (lines.first ?? "").split(separator: " ")
-        guard parts.count >= 2, ["GET", "HEAD"].contains(String(parts[0])), let url = routes[String(parts[1])] else {
+        guard parts.count >= 2, ["GET", "HEAD"].contains(String(parts[0])), let url = routeCodec.decode(String(parts[1])) else {
             reply(connection, status: 404, data: Data(), headers: [:]); return
         }
         var request = URLRequest(url: url)
@@ -158,6 +153,6 @@ final class HLSProxy {
         } catch { try? handle.close(); try? FileManager.default.removeItem(at: path); close(connection) }
     }
     func stop() {
-        queue.async { self.listener?.cancel(); self.listener = nil; Array(self.connections.values).forEach { self.close($0) }; self.routes.removeAll(); self.reverseRoutes.removeAll(); self.session.invalidateAndCancel() }
+        queue.async { self.listener?.cancel(); self.listener = nil; Array(self.connections.values).forEach { self.close($0) }; self.session.invalidateAndCancel() }
     }
 }
