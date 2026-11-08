@@ -24,8 +24,9 @@ final class HLSProxyTests: XCTestCase {
                 XCTAssertTrue(text.lowercased().contains("origin: https://source.test"))
                 received.fulfill()
                 if text.hasPrefix("GET /segment.ts?sig=abc ") {
-                    let bytes = Data([0, 1, 2, 3, 4])
-                    var response = Data("HTTP/1.1 200 OK\r\nContent-Type: video/mp2t\r\nContent-Length: 5\r\nConnection: close\r\n\r\n".utf8)
+                    XCTAssertTrue(text.lowercased().contains("range: bytes=1-3"))
+                    let bytes = Data([1, 2, 3])
+                    var response = Data("HTTP/1.1 206 Partial Content\r\nContent-Type: video/mp2t\r\nContent-Range: bytes 1-3/5\r\nAccept-Ranges: bytes\r\nContent-Length: 3\r\nConnection: close\r\n\r\n".utf8)
                     response.append(bytes)
                     connection.send(content: response, completion: .contentProcessed { _ in connection.cancel() })
                     return
@@ -56,10 +57,13 @@ final class HLSProxyTests: XCTestCase {
             XCTAssertFalse(body.contains("segment.ts?sig=abc"))
             XCTAssertTrue(body.contains("http://127.0.0.1:"))
             guard let path = body.components(separatedBy: "\n").first(where: { $0.hasPrefix("http://127.0.0.1:") }), let segment = URL(string: path) else { XCTFail("missing segment route"); response.fulfill(); return }
-            URLSession.shared.dataTask(with: segment) { bytes, result, error in
+            var segmentRequest = URLRequest(url: segment)
+            segmentRequest.setValue("bytes=1-3", forHTTPHeaderField: "Range")
+            URLSession.shared.dataTask(with: segmentRequest) { bytes, result, error in
                 XCTAssertNil(error)
-                XCTAssertEqual((result as? HTTPURLResponse)?.statusCode, 200)
-                XCTAssertEqual(bytes, Data([0, 1, 2, 3, 4]))
+                XCTAssertEqual((result as? HTTPURLResponse)?.statusCode, 206)
+                XCTAssertEqual((result as? HTTPURLResponse)?.value(forHTTPHeaderField: "Content-Range"), "bytes 1-3/5")
+                XCTAssertEqual(bytes, Data([1, 2, 3]))
                 response.fulfill()
             }.resume()
         }.resume()
