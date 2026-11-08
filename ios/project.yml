@@ -42,6 +42,7 @@ targets:
       - path: AniCrN/HLSHTTPTransfer.swift
       - path: AniCrN/HLSPlaylist.swift
       - path: AniCrN/MediaRouteCodec.swift
+      - path: AniCrN/MP4ResourceLoader.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.anicrn.transporttests

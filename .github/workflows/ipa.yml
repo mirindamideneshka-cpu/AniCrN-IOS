@@ -22,6 +22,7 @@ jobs:
           cp ios/AniCrN/HLSPlaylist.swift transport-tests/Sources/HLSPlaylist.swift
           cp ios/AniCrN/HLSProxy.swift transport-tests/Sources/HLSProxy.swift
           cp ios/AniCrN/HLSHTTPTransfer.swift transport-tests/Sources/HLSHTTPTransfer.swift
+          cp ios/AniCrN/MP4ResourceLoader.swift transport-tests/Sources/MP4ResourceLoader.swift
           cp ios/AniCrN/MediaRouteCodec.swift transport-tests/Sources/MediaRouteCodec.swift
           cp ios/AniCrN/ProviderHTMLParser.swift transport-tests/Sources/ProviderHTMLParser.swift
           cp ios/AniCrN/HostStreamParser.swift transport-tests/Sources/HostStreamParser.swift
