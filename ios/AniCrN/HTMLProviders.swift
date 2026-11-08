@@ -49,12 +49,22 @@ enum HTMLProviders {
             components.queryItems = query.isEmpty ? nil : [URLQueryItem(name: "do", value: "search"), URLQueryItem(name: "subaction", value: "search"), URLQueryItem(name: "story", value: query)]
         }
         let form = source == .animefox && !query.isEmpty ? [URLQueryItem(name: "do", value: "search"), URLQueryItem(name: "subaction", value: "search"), URLQueryItem(name: "story", value: query), URLQueryItem(name: "catlist[]", value: "1")] : nil
-        let doc = try SwiftSoup.parse(try await get(components.url!, referer: base, form: form))
+        let html: String
+        do { html = try await get(components.url!, referer: base, form: form) }
+        catch {
+            guard source == .animevost, !Task.isCancelled else { throw error }
+            var mirror = components
+            mirror.host = "animevost.org"
+            html = try await get(mirror.url!, referer: URL(string: "https://animevost.org")!)
+            components = mirror
+        }
+        let documentBase = components.url!
+        let doc = try SwiftSoup.parse(html)
         let cards = try doc.select(source == .animego ? ".ani-grid__item, .ani-list__item" : source == .animevost ? "article, .shortstory, .short, .story, .news, .item, .th-item" : "article.short")
         var seen = Set<String>()
         return try cards.array().compactMap { card in
             let selector = source == .animego ? "a[href*=/anime/]" : source == .animevost ? "a[href*=.html]" : "a.short-title[href], a.tc-item[href]"
-            guard let link = try card.select(selector).first(), let url = try absolute(link.attr("href"), base: base), seen.insert(url.absoluteString).inserted else { return nil }
+            guard let link = try card.select(selector).first(), let url = try absolute(link.attr("href"), base: documentBase), seen.insert(url.absoluteString).inserted else { return nil }
             let titleElement = try card.select(source == .animego ? ".ani-grid__item-title, .ani-list__item-title" : source == .animevost ? "h1,h2,h3,.title,.shortstoryHead" : "a.short-title").first()
             let title = try titleElement?.text() ?? link.text()
             return ProviderEntry(id: url.absoluteString, title: title.isEmpty ? url.lastPathComponent : title, url: url)
