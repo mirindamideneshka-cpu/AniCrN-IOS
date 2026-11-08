@@ -6,6 +6,7 @@ struct CapturedStream: Identifiable {
     var id: String { url.absoluteString }
     let url: URL
     let page: URL?
+    let cookies: [HTTPCookie]
 }
 
 // Observation of page-level fetch/XHR, resource timing and HTML media in all frames.
@@ -42,7 +43,11 @@ struct StreamCaptureBrowser: UIViewRepresentable {
             guard let body = message.body as? [String: String], let raw = body["url"],
                   let url = URL(string: raw), ["https", "http"].contains(url.scheme?.lowercased() ?? ""),
                   ["m3u8", "mp4"].contains(url.pathExtension.lowercased()), seen.insert(raw).inserted else { return }
-            onStream(CapturedStream(url: url, page: message.frameInfo.request.url))
+            let page = message.frameInfo.request.url
+            // Preserve domain/path/secure attributes; AVFoundation selects matching cookies.
+            message.webView?.configuration.websiteDataStore.httpCookieStore.getAllCookies { [weak self] cookies in
+                self?.onStream(CapturedStream(url: url, page: page, cookies: cookies))
+            }
         }
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { onError(error.localizedDescription) }
         func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { onError(error.localizedDescription) }
@@ -107,7 +112,7 @@ struct WebSourceView: View {
                 ScrollView(.horizontal) {
                     HStack {
                         ForEach(Array(streams.enumerated()), id: \.element.id) { index, stream in
-                            NavigationLink("Поток \(index + 1) · \(stream.url.pathExtension.uppercased())") { PlaybackView(url: stream.url) }
+                            NavigationLink("Поток \(index + 1) · \(stream.url.pathExtension.uppercased())") { PlaybackView(url: stream.url, cookies: stream.cookies) }
                         }
                     }.padding()
                 }

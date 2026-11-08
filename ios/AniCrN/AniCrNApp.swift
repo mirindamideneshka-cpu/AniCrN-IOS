@@ -179,7 +179,10 @@ struct EpisodeSourcesView: View {
 
 struct PlaybackView: View {
     @State private var player: AVPlayer
-    init(url: URL) { _player = State(initialValue: AVPlayer(url: url)) }
+    init(url: URL, cookies: [HTTPCookie] = []) {
+        let asset = AVURLAsset(url: url, options: [AVURLAssetHTTPCookiesKey: cookies])
+        _player = State(initialValue: AVPlayer(playerItem: AVPlayerItem(asset: asset)))
+    }
     var body: some View {
         VideoPlayer(player: player)
             .onAppear { player.play() }
