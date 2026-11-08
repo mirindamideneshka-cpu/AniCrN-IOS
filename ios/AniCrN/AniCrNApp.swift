@@ -176,22 +176,3 @@ struct EpisodeSourcesView: View {
         loading = false
     }
 }
-
-struct PlaybackView: View {
-    @State private var player: AVPlayer
-    private let loader: MP4ResourceLoader?
-    init(url: URL, cookies: [HTTPCookie] = [], headers: [String: String] = [:]) {
-        let resourceLoader = url.pathExtension.lowercased() == "mp4" && !headers.isEmpty ? MP4ResourceLoader(url: url, headers: headers, cookies: cookies) : nil
-        loader = resourceLoader
-        let asset = AVURLAsset(url: resourceLoader?.assetURL ?? url, options: [AVURLAssetHTTPCookiesKey: cookies])
-        if let resourceLoader { asset.resourceLoader.setDelegate(resourceLoader, queue: .main) }
-        _player = State(initialValue: AVPlayer(playerItem: AVPlayerItem(asset: asset)))
-    }
-    var body: some View {
-        VideoPlayer(player: player)
-            .onAppear { player.play() }
-            .onDisappear { player.pause() }
-    }
-}
-
-
