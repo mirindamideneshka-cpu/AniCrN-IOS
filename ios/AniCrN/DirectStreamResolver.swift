@@ -2,14 +2,12 @@ import SwiftUI
 
 enum DirectStreamResolver {
     static func streams(in text: String, base: URL) throws -> [URL] {
-        let decoded = text.replacingOccurrences(of: "\\/", with: "/")
-            .replacingOccurrences(of: "\\u0026", with: "&").replacingOccurrences(of: "&amp;", with: "&")
-        let regex = try NSRegularExpression(pattern: #"(?:https?:)?//[^"'<>\s\\]+\.(?:m3u8|mp4)(?:\?[^"'<>\s\\]*)?"#, options: .caseInsensitive)
-        var seen = Set<String>()
-        return regex.matches(in: decoded, range: NSRange(decoded.startIndex..., in: decoded)).compactMap { match in
-            guard let range = Range(match.range, in: decoded), let url = HTMLProviders.absolute(String(decoded[range]), base: base), seen.insert(url.absoluteString).inserted else { return nil }
-            return url
+        let rawURLs: [String] = try text.withCString { input in
+            guard let output = anicrn_extract_streams(input) else { throw URLError(.cannotParseResponse) }
+            defer { anicrn_free(output) }
+            return try JSONDecoder().decode([String].self, from: Data(String(cString: output).utf8))
         }
+        return rawURLs.compactMap { HTMLProviders.absolute($0, base: base) }
     }
     static func vostPlayers(in html: String, page: URL) throws -> [ProviderEntry] {
         let block = try NSRegularExpression(pattern: #"var\s+data\s*=\s*\{(.*?)\}\s*;"#, options: .dotMatchesLineSeparators)
@@ -57,3 +55,4 @@ struct ResolvedPlayerView: View {
         }
     }
 }
+
