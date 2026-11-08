@@ -28,8 +28,10 @@ final class HLSHTTPTransfer: NSObject, URLSessionDataDelegate {
     private func headers(_ http: HTTPURLResponse, length: Int? = nil, chunked: Bool = false) -> Data {
         var text = "HTTP/1.1 \(http.statusCode) Response\r\nConnection: close\r\n"
         for name in ["Content-Type", "Content-Range", "Accept-Ranges"] {
+            if name == "Content-Type" && playlist && !headOnly { continue }
             if let value = http.value(forHTTPHeaderField: name) { text += name + ": " + value.replacingOccurrences(of: "\r", with: "").replacingOccurrences(of: "\n", with: "") + "\r\n" }
         }
+        if playlist && !headOnly { text += "Content-Type: application/vnd.apple.mpegurl\r\n" }
         if chunked { text += "Transfer-Encoding: chunked\r\n" }
         else if let length { text += "Content-Length: \(length)\r\n" }
         else if let value = http.value(forHTTPHeaderField: "Content-Length"), let size = Int64(value) { text += "Content-Length: \(size)\r\n" }
