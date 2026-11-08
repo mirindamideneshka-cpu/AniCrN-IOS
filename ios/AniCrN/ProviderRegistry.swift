@@ -38,6 +38,7 @@ struct SourcesView: View {
                     NavigationLink("AnimeLib · каталог и серии") { AnimeLibCatalogView() }
                     NavigationLink("AnimeGo · каталог и серии") { HTMLCatalogView(source: .animego) }
                     NavigationLink("AnimeFox · каталог") { HTMLCatalogView(source: .animefox) }
+                    NavigationLink("Shikimori · каталог метаданных") { ShikimoriCatalogView() }
                 }
                 Section("Веб-источники · поиск и выбор на сайте") {
                     ForEach(AnimeSource.allCases) { source in
@@ -45,6 +46,45 @@ struct SourcesView: View {
                     }
                 }
             }.navigationTitle("Источники")
+        }
+    }
+}
+
+struct ShikimoriCatalogView: View {
+    @State private var query = ""
+    @State private var entries: [Anime] = []
+    @State private var error: String?
+    @State private var loading = false
+    var body: some View {
+        List {
+            Text("Shikimori предоставляет метаданные. Для просмотра выберите релиз в источнике с видео.").font(.caption)
+            if loading { ProgressView() }
+            if let error { Text(error).foregroundStyle(.red) }
+            ForEach(entries) { anime in
+                NavigationLink(anime.title) {
+                    List {
+                        Text(anime.description)
+                        NavigationLink("Найти в AnimeGo") { HTMLCatalogView(source: .animego, initialQuery: anime.title) }
+                        NavigationLink("Найти в AnimeFox") { HTMLCatalogView(source: .animefox, initialQuery: anime.title) }
+                    }.navigationTitle(anime.title)
+                }
+            }
+        }.navigationTitle("Shikimori").searchable(text: $query).task(id: query) {
+            loading = true; error = nil
+            do {
+                try await Task.sleep(nanoseconds: 350_000_000)
+                var c = URLComponents(string: "https://shikimori.one/api/animes")!
+                c.queryItems = [URLQueryItem(name: "limit", value: "30"), URLQueryItem(name: "order", value: "popularity")]
+                if !query.isEmpty { c.queryItems?.append(URLQueryItem(name: "search", value: query)) }
+                let rows = try await ProviderNetwork.json(c.url!, site: AnimeSource.shikimori.site) as? [[String: Any]] ?? []
+                try Task.checkCancellation()
+                entries = rows.compactMap { row in
+                    guard let id = row["id"] as? NSNumber else { return nil }
+                    let russian = row["russian"] as? String ?? ""
+                    return Anime(id: id.stringValue, title: russian.isEmpty ? row["name"] as? String ?? id.stringValue : russian, description: row["name"] as? String ?? "", poster: "")
+                }
+                loading = false
+            } catch { if !Task.isCancelled { self.error = error.localizedDescription; loading = false } }
         }
     }
 }

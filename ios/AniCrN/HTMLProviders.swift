@@ -102,6 +102,10 @@ enum HTMLProviders {
 
 struct HTMLCatalogView: View {
     let source: AnimeSource
+    init(source: AnimeSource, initialQuery: String = "") {
+        self.source = source
+        _query = State(initialValue: initialQuery)
+    }
     @State private var query = ""
     @State private var entries: [ProviderEntry] = []
     @State private var page = 1
