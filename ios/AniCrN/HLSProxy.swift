@@ -50,6 +50,13 @@ final class HLSProxy {
         return URL(string: "http://127.0.0.1:\(port)\(path)")!
     }
     private func accept(_ connection: NWConnection) {
+        // AVPlayer normally uses only a few concurrent requests. Bound the per-session
+        // memory/socket budget even when an origin produces a very large playlist.
+        guard connections.count < 16 else {
+            connection.start(queue: queue)
+            connection.send(content: Data("HTTP/1.1 503 Service Unavailable\r\nRetry-After: 1\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".utf8), completion: .contentProcessed { _ in connection.cancel() })
+            return
+        }
         let id = ObjectIdentifier(connection)
         connections[id] = connection
         connection.start(queue: queue)
