@@ -127,6 +127,7 @@ struct HTMLCatalogView: View {
             Button("Следующая страница") { page += 1 }.disabled(loading || !query.isEmpty)
             NavigationLink("Открыть сайт источника") { WebSourceView(initialURL: source.site) }
         }.navigationTitle(source.title).searchable(text: $query)
+        .onChange(of: query) { _ in page = 1 }
         .task(id: "\(page):\(query)") {
             loading = true; error = nil
             do {

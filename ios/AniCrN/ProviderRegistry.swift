@@ -120,6 +120,7 @@ struct AnimeLibCatalogView: View {
     @State private var titles: [Anime] = []
     @State private var error: String?
     @State private var loading = false
+    @State private var page = 1
     var body: some View {
         List {
             if loading { ProgressView() }
@@ -127,12 +128,20 @@ struct AnimeLibCatalogView: View {
             ForEach(titles) { anime in
                 NavigationLink(anime.title) { AnimeLibEpisodesView(anime: anime) }
             }
+            if query.isEmpty {
+                HStack {
+                    Button("Назад") { page = max(1, page - 1) }.disabled(page == 1 || loading)
+                    Text("Страница \(page)")
+                    Button("Далее") { page += 1 }.disabled(loading || titles.isEmpty)
+                }
+            }
         }.navigationTitle("AnimeLib").searchable(text: $query)
-        .task(id: query) {
+        .onChange(of: query) { _ in page = 1 }
+        .task(id: "\(query):\(page)") {
             loading = true; error = nil
             do {
                 try await Task.sleep(nanoseconds: 350_000_000)
-                var params = [URLQueryItem(name: "site_id[]", value: "5"), URLQueryItem(name: "page", value: "1")]
+                var params = [URLQueryItem(name: "site_id[]", value: "5"), URLQueryItem(name: "page", value: String(page))]
                 if !query.isEmpty { params.append(URLQueryItem(name: "q", value: query)) }
                 else { params += [URLQueryItem(name: "sort_by", value: "rating_score"), URLQueryItem(name: "sort_type", value: "desc")] }
                 let root = try await AnimeLibAPI.request("/anime", query: params)
