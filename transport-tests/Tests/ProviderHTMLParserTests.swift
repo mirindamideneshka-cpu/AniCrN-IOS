@@ -2,6 +2,10 @@ import XCTest
 @testable import TransportChecks
 
 final class ProviderHTMLParserTests: XCTestCase {
+    func testYummySlugMatchesAndroidTransliteration() {
+        XCTAssertEqual(YummySlug.make("Ёжик, Йона: Щит!"), "ezhik-iona-schit")
+        XCTAssertEqual(YummySlug.make("  One Piece 2  "), "one-piece-2")
+    }
     func testAnimeGoModernGridAndListDeduplication() throws {
         let html = #"<div class="ani-grid__item"><a href="/anime/test-123"><img></a><div class="ani-grid__item-title"><a href="/anime/test-123">Тест &amp; мир</a></div></div><div class="ani-list__item"><div class="ani-list__item-title"><a href="/anime/test-123">Повтор</a></div></div>"#
         let rows = try ProviderHTMLParser.cards(html, source: "animego", base: URL(string: "https://animego.me/anime?page=2")!)

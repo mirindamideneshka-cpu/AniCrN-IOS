@@ -1,6 +1,19 @@
 import SwiftUI
+import SwiftSoup
 
 enum YummyAPI {
+    static func webSearch(_ query: String) async throws -> Anime? {
+        let slug = YummySlug.make(query)
+        guard !slug.isEmpty else { return nil }
+        let url = AnimeSource.yummyanime.site.appendingPathComponent("catalog/item/" + slug)
+        let html = try await HTMLProviders.get(url, referer: AnimeSource.yummyanime.site)
+        let doc = try SwiftSoup.parse(html)
+        let title = try doc.select("h1").first()?.text() ?? doc.select("meta[property=og:title]").first()?.attr("content") ?? ""
+        guard !title.isEmpty else { return nil }
+        let description = try doc.select("meta[name=description]").first()?.attr("content") ?? ""
+        let poster = try doc.select("meta[property=og:image]").first()?.attr("content") ?? ""
+        return Anime(id: slug, title: title, description: description, poster: poster)
+    }
     static func request(_ path: String, query: [URLQueryItem] = []) async throws -> Any {
         var lastError: Error = URLError(.cannotConnectToHost)
         for base in ["https://api.yani.tv", "https://ru.yummyani.me/api"] {
@@ -39,16 +52,30 @@ struct YummyCatalogView: View {
             loading = true; error = nil
             do {
                 try await Task.sleep(nanoseconds: 350_000_000)
-                let rows: [[String: Any]]
+                var rows: [[String: Any]]
                 if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     let feed = try await YummyAPI.request("/feed") as? [String: Any]
                     rows = feed?["new_videos"] as? [[String: Any]] ?? []
                 } else {
-                    rows = try await YummyAPI.request("/search", query: [URLQueryItem(name: "q", value: query), URLQueryItem(name: "limit", value: "30"), URLQueryItem(name: "offset", value: "0")]) as? [[String: Any]] ?? []
+                    do {
+                        rows = try await YummyAPI.request("/search", query: [URLQueryItem(name: "q", value: query), URLQueryItem(name: "limit", value: "30"), URLQueryItem(name: "offset", value: "0")]) as? [[String: Any]] ?? []
+                    } catch {
+                        if Task.isCancelled { throw CancellationError() }
+                        guard let fallback = try await YummyAPI.webSearch(query) else { throw error }
+                        try Task.checkCancellation()
+                        titles = [fallback]; loading = false; return
+                    }
                 }
                 try Task.checkCancellation()
                 var seen = Set<String>()
                 titles = rows.compactMap(YummyAPI.title).filter { seen.insert($0.id).inserted }
+                if !query.isEmpty && !titles.contains(where: { $0.title.localizedCaseInsensitiveContains(query) }) {
+                    do {
+                        if let fallback = try await YummyAPI.webSearch(query), seen.insert(fallback.id).inserted {
+                            try Task.checkCancellation(); titles.append(fallback)
+                        }
+                    } catch { if Task.isCancelled { throw CancellationError() } }
+                }
                 loading = false
             } catch { if !Task.isCancelled { self.error = error.localizedDescription; loading = false } }
         }

@@ -22,6 +22,7 @@ jobs:
           cp ios/AniCrN/HLSPlaylist.swift transport-tests/Sources/HLSPlaylist.swift
           cp ios/AniCrN/HLSProxy.swift transport-tests/Sources/HLSProxy.swift
           cp ios/AniCrN/ProviderHTMLParser.swift transport-tests/Sources/ProviderHTMLParser.swift
+          cp ios/AniCrN/YummySlug.swift transport-tests/Sources/YummySlug.swift
           swift test --package-path transport-tests
       - name: Rust tests and device library
         run: |
