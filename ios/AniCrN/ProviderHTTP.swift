@@ -1,6 +1,16 @@
 import Foundation
 
+struct ProviderHTTPError: LocalizedError {
+    let status: Int
+    let host: String
+    var errorDescription: String? { "Источник \(host) вернул HTTP \(status)" }
+}
+
 enum ProviderHTTP {
+    static func validate(_ response: URLResponse) throws {
+        guard let http = response as? HTTPURLResponse else { throw URLError(.badServerResponse) }
+        guard (200..<300).contains(http.statusCode) else { throw ProviderHTTPError(status: http.statusCode, host: http.url?.host ?? "") }
+    }
     static func data(for request: URLRequest) async throws -> (Data, URLResponse) {
         for attempt in 0..<2 {
             do {

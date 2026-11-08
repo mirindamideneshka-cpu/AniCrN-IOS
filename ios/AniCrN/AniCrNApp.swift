@@ -15,9 +15,7 @@ enum Provider {
         request.timeoutInterval = 30
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         let (data, response) = try await ProviderHTTP.data(for: request)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
-            throw URLError(.badServerResponse)
-        }
+        try ProviderHTTP.validate(response)
         return data
     }
 

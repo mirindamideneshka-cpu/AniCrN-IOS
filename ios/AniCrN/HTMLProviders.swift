@@ -22,7 +22,8 @@ enum HTMLProviders {
             request.httpBody = body.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B").data(using: .utf8)
         }
         let (data, response) = try await ProviderHTTP.data(for: request)
-        guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode), let text = String(data: data, encoding: .utf8) else { throw URLError(.badServerResponse) }
+        try ProviderHTTP.validate(response)
+        guard let text = String(data: data, encoding: .utf8) else { throw URLError(.cannotDecodeContentData) }
         return text
     }
     static func absolute(_ raw: String, base: URL) -> URL? {
