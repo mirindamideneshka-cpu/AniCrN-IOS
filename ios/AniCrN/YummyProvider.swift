@@ -99,7 +99,7 @@ struct YummyEpisodesView: View {
                     ForEach(videos.filter { $0.number == number }) { video in
                         NavigationLink(video.voice) {
                             if ["mp4", "m3u8"].contains(video.url.pathExtension.lowercased()) { PlaybackView(url: video.url, headers: ["Referer": AnimeSource.yummyanime.site.absoluteString, "Origin": AnimeSource.yummyanime.site.absoluteString]) }
-                            else { WebSourceView(initialURL: video.url) }
+                            else { WebSourceView(initialURL: video.url, referer: AnimeSource.yummyanime.site) }
                         }
                     }
                 }

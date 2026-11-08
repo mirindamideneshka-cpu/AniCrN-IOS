@@ -42,7 +42,7 @@ struct ResolvedPlayerView: View {
                     PlaybackView(url: url, headers: ["Referer": referer.absoluteString, "Origin": "https://" + (referer.host ?? "")])
                 }
             }
-            NavigationLink("Открыть веб-плеер и перехватить поток") { WebSourceView(initialURL: player) }
+            NavigationLink("Открыть веб-плеер и перехватить поток") { WebSourceView(initialURL: player, referer: referer) }
         }.navigationTitle("Источники видео").task {
             do {
                 var endpoint = player

@@ -18,6 +18,7 @@ struct StreamCaptureBrowser: UIViewRepresentable {
     let onStream: (CapturedStream) -> Void
     let onError: (String) -> Void
     var paused = false
+    var referer: URL? = nil
     func makeCoordinator() -> Coordinator { Coordinator(onStream: onStream, onError: onError) }
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
@@ -26,7 +27,9 @@ struct StreamCaptureBrowser: UIViewRepresentable {
         configuration.userContentController.addUserScript(WKUserScript(source: Self.script, injectionTime: .atDocumentStart, forMainFrameOnly: false))
         let view = WKWebView(frame: .zero, configuration: configuration)
         view.navigationDelegate = context.coordinator
-        view.load(URLRequest(url: url))
+        var request = URLRequest(url: url)
+        if let referer { request.setValue(referer.absoluteString, forHTTPHeaderField: "Referer") }
+        view.load(request)
         return view
     }
     func updateUIView(_ view: WKWebView, context: Context) {
@@ -98,29 +101,31 @@ struct StreamCaptureBrowser: UIViewRepresentable {
 }
 
 struct WebSourceView: View {
-    init(initialURL: URL = URL(string: "https://animego.me")!) {
+    init(initialURL: URL = URL(string: "https://animego.me")!, referer: URL? = nil) {
         _address = State(initialValue: initialURL.absoluteString)
         _page = State(initialValue: initialURL)
+        _referer = State(initialValue: referer)
     }
     @State private var address = "https://animego.me"
     @State private var page: URL?
     @State private var streams: [CapturedStream] = []
     @State private var error: String?
     @State private var webPaused = false
+    @State private var referer: URL?
     var body: some View {
         VStack {
             HStack {
                 TextField("HTTPS-страница источника", text: $address).textInputAutocapitalization(.never).autocorrectionDisabled()
                 Button("Открыть") {
                     guard let url = URL(string: address), url.scheme == "https", url.host != nil else { error = "Введите HTTPS-адрес"; return }
-                    streams = []; error = nil; page = url
+                    streams = []; error = nil; referer = nil; page = url
                 }
             }.padding()
             if let error { Text(error).foregroundStyle(.red) }
             if let page {
                 StreamCaptureBrowser(url: page, onStream: { stream in
                     if !streams.contains(where: { $0.id == stream.id }) { streams.append(stream) }
-                }, onError: { error = $0 }, paused: webPaused).id(page)
+                }, onError: { error = $0 }, paused: webPaused, referer: referer).id(page)
             } else { Text("Откройте источник, выберите серию и запустите видео на странице.").padding(); Spacer() }
             if !streams.isEmpty {
                 ScrollView(.horizontal) {

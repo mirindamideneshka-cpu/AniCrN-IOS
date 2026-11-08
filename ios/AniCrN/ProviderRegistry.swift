@@ -191,7 +191,7 @@ struct AnimeLibPlayersView: View {
                 if ["m3u8", "mp4"].contains(player.url.pathExtension.lowercased()) {
                     NavigationLink(player.title) { PlaybackView(url: player.url, headers: ["Referer": AnimeSource.animelib.site.absoluteString, "Origin": "https://v5.animelib.org"]) }
                 } else {
-                    NavigationLink(player.title) { WebSourceView(initialURL: player.url) }
+                    NavigationLink(player.title) { WebSourceView(initialURL: player.url, referer: AnimeSource.animelib.site) }
                 }
             }
         }.navigationTitle("Озвучки").task {

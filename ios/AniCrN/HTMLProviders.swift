@@ -178,7 +178,7 @@ struct AnimeGoVoicesView: View {
             if loading { ProgressView() }
             if let error { Text(error).foregroundStyle(.red) }
             ForEach(entries) { entry in
-                if let url = entry.url { NavigationLink(entry.title) { WebSourceView(initialURL: url) } }
+                if let url = entry.url { NavigationLink(entry.title) { WebSourceView(initialURL: url, referer: AnimeSource.animego.site) } }
             }
             if !loading && entries.isEmpty && error == nil { Text("Нет доступных озвучек") }
         }.navigationTitle("Озвучки AnimeGo").task {
