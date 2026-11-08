@@ -118,11 +118,9 @@ struct DetailView: View {
             if let error { Text(error).foregroundStyle(.red) }
             if !loading && episodes.isEmpty && error == nil { Text("Серии пока отсутствуют") }
             ForEach(episodes) { episode in
-                if let url = episode.stream {
-                    NavigationLink(episode.name ?? "Серия \(episode.ordinal.map { String($0) } ?? "")") {
-                        PlaybackView(url: url)
-                    }
-                } else { Text(episode.name ?? "Видео недоступно").foregroundStyle(.secondary) }
+                NavigationLink(episode.name ?? "Серия \(episode.ordinal.map { String($0) } ?? "")") {
+                    EpisodeSourcesView(episodeID: episode.id)
+                }
             }
         }.navigationTitle(anime.title)
         .task {
@@ -136,6 +134,46 @@ struct DetailView: View {
             } catch { self.error = error.localizedDescription }
             loading = false
         }
+    }
+}
+
+struct EpisodeSourcesView: View {
+    let episodeID: String
+    @State private var episode: Episode?
+    @State private var error: String?
+    @State private var loading = false
+    var body: some View {
+        List {
+            if loading { ProgressView() }
+            if let error { Text(error).foregroundStyle(.red) }
+            if let episode {
+                ForEach(sources(episode), id: \.0) { quality, url in
+                    NavigationLink(quality) { PlaybackView(url: url) }
+                }
+                if sources(episode).isEmpty { Text("Источник не вернул доступных потоков") }
+            }
+            Button("Обновить потоки") { Task { await load() } }.disabled(loading)
+        }.navigationTitle("Качество AniLiberty").task { await load() }
+    }
+    private func sources(_ episode: Episode) -> [(String, URL)] {
+        [("1080p", episode.hls_1080), ("720p", episode.hls_720), ("480p", episode.hls_480)].compactMap { quality, raw in
+            guard let raw, !raw.isEmpty else { return nil }
+            let normalized = raw.hasPrefix("//") ? "https:" + raw : raw.replacingOccurrences(of: "&amp;", with: "&")
+            guard let url = URL(string: normalized, relativeTo: URL(string: "https://cache.libria.fun/"))?.absoluteURL,
+                  ["https", "http"].contains(url.scheme ?? "") else { return nil }
+            return (quality, url)
+        }
+    }
+    private func load() async {
+        loading = true; error = nil
+        do {
+            let id = episodeID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? episodeID
+            let data = try await Provider.request("/anime/releases/episodes/" + id)
+            let object = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+            let unwrapped = try JSONSerialization.data(withJSONObject: object?["data"] ?? object?["response"] ?? object ?? [:])
+            episode = try JSONDecoder().decode(Episode.self, from: unwrapped)
+        } catch { self.error = error.localizedDescription }
+        loading = false
     }
 }
 
