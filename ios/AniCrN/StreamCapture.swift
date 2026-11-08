@@ -8,6 +8,7 @@ struct CapturedStream: Identifiable {
     let page: URL?
     let cookies: [HTTPCookie]
     let mediaType: String
+    let userAgent: String
 }
 
 // Observation of page-level fetch/XHR, resource timing and HTML media in all frames.
@@ -16,6 +17,7 @@ struct StreamCaptureBrowser: UIViewRepresentable {
     let url: URL
     let onStream: (CapturedStream) -> Void
     let onError: (String) -> Void
+    var paused = false
     func makeCoordinator() -> Coordinator { Coordinator(onStream: onStream, onError: onError) }
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
@@ -27,7 +29,9 @@ struct StreamCaptureBrowser: UIViewRepresentable {
         view.load(URLRequest(url: url))
         return view
     }
-    func updateUIView(_ view: WKWebView, context: Context) {}
+    func updateUIView(_ view: WKWebView, context: Context) {
+        if paused { view.evaluateJavaScript("window.postMessage({anicrnPause:true}, '*')", completionHandler: nil) }
+    }
     static func dismantleUIView(_ view: WKWebView, coordinator: Coordinator) {
         view.stopLoading()
         view.configuration.userContentController.removeScriptMessageHandler(forName: "anicrnStream")
@@ -45,10 +49,11 @@ struct StreamCaptureBrowser: UIViewRepresentable {
                   let url = URL(string: raw), ["https", "http"].contains(url.scheme?.lowercased() ?? ""),
                   (["m3u8", "mp4"].contains(url.pathExtension.lowercased()) || ["hls", "mp4"].contains(body["type"] ?? "")), seen.insert(raw).inserted else { return }
             let type = body["type"] ?? (url.pathExtension.lowercased() == "m3u8" ? "hls" : "mp4")
+            let userAgent = body["userAgent"] ?? ""
             let page = message.frameInfo.request.url
             // Preserve domain/path/secure attributes; AVFoundation selects matching cookies.
             message.webView?.configuration.websiteDataStore.httpCookieStore.getAllCookies { [weak self] cookies in
-                self?.onStream(CapturedStream(url: url, page: page, cookies: cookies, mediaType: type))
+                self?.onStream(CapturedStream(url: url, page: page, cookies: cookies, mediaType: type, userAgent: userAgent))
             }
         }
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { onError(error.localizedDescription) }
@@ -56,6 +61,11 @@ struct StreamCaptureBrowser: UIViewRepresentable {
     }
     static let script = #"""
     (() => {
+      window.addEventListener('message', event => {
+        if (!event.data || event.data.anicrnPause !== true) return;
+        document.querySelectorAll('video,audio').forEach(v => v.pause());
+        for (let i = 0; i < window.frames.length; i++) window.frames[i].postMessage({anicrnPause:true}, '*');
+      });
       const seen = new Set();
       const report = (raw, mime = '') => {
         try {
@@ -63,7 +73,7 @@ struct StreamCaptureBrowser: UIViewRepresentable {
           const type = /mpegurl/i.test(mime) || /\.m3u8$/i.test(u.pathname) ? 'hls' : /video\/mp4/i.test(mime) || /\.mp4$/i.test(u.pathname) ? 'mp4' : '';
           if (!/^https?:$/.test(u.protocol) || !type || seen.has(u.href)) return;
           seen.add(u.href);
-          window.webkit.messageHandlers.anicrnStream.postMessage({url: u.href, type});
+          window.webkit.messageHandlers.anicrnStream.postMessage({url: u.href, type, userAgent: navigator.userAgent});
         } catch (_) {}
       };
       const fetch = window.fetch;
@@ -96,6 +106,7 @@ struct WebSourceView: View {
     @State private var page: URL?
     @State private var streams: [CapturedStream] = []
     @State private var error: String?
+    @State private var webPaused = false
     var body: some View {
         VStack {
             HStack {
@@ -109,14 +120,15 @@ struct WebSourceView: View {
             if let page {
                 StreamCaptureBrowser(url: page, onStream: { stream in
                     if !streams.contains(where: { $0.id == stream.id }) { streams.append(stream) }
-                }, onError: { error = $0 }).id(page)
+                }, onError: { error = $0 }, paused: webPaused).id(page)
             } else { Text("Откройте источник, выберите серию и запустите видео на странице.").padding(); Spacer() }
             if !streams.isEmpty {
                 ScrollView(.horizontal) {
                     HStack {
                         ForEach(Array(streams.enumerated()), id: \.element.id) { index, stream in
                             NavigationLink("Поток \(index + 1) · \(stream.url.pathExtension.uppercased())") {
-                                PlaybackView(url: stream.url, cookies: stream.cookies, headers: stream.page.map { ["Referer": $0.absoluteString, "Origin": ($0.scheme ?? "https") + "://" + ($0.host ?? "")] } ?? [:], mediaType: stream.mediaType)
+                                PlaybackView(url: stream.url, cookies: stream.cookies, headers: playbackHeaders(stream), mediaType: stream.mediaType)
+                                    .onAppear { webPaused = true }.onDisappear { webPaused = false }
                             }
                         }
                     }.padding()
@@ -124,5 +136,10 @@ struct WebSourceView: View {
                 Text("Защищённый заголовками поток может работать только внутри страницы.").font(.caption).padding(.horizontal)
             }
         }.navigationTitle("Веб-источник")
+    }
+    private func playbackHeaders(_ stream: CapturedStream) -> [String: String] {
+        var headers = stream.page.map { ["Referer": $0.absoluteString, "Origin": ($0.scheme ?? "https") + "://" + ($0.host ?? "")] } ?? [:]
+        if !stream.userAgent.isEmpty { headers["User-Agent"] = stream.userAgent }
+        return headers
     }
 }
