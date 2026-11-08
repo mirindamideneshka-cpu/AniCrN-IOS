@@ -46,6 +46,10 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         SWIFT_VERSION: "5.0"
 schemes:
+  AniCrN:
+    build:
+      targets:
+        AniCrN: all
   TransportTests:
     build:
       targets:
