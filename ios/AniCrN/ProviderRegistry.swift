@@ -189,7 +189,7 @@ struct AnimeLibPlayersView: View {
             if !loading && players.isEmpty && error == nil { Text("Доступных плееров нет") }
             ForEach(players) { player in
                 if ["m3u8", "mp4"].contains(player.url.pathExtension.lowercased()) {
-                    NavigationLink(player.title) { PlaybackView(url: player.url) }
+                    NavigationLink(player.title) { PlaybackView(url: player.url, headers: ["Referer": AnimeSource.animelib.site.absoluteString, "Origin": "https://v5.animelib.org"]) }
                 } else {
                     NavigationLink(player.title) { WebSourceView(initialURL: player.url) }
                 }

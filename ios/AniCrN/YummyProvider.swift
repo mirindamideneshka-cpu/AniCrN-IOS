@@ -77,7 +77,7 @@ struct YummyEpisodesView: View {
                 Section("Серия " + number) {
                     ForEach(videos.filter { $0.number == number }) { video in
                         NavigationLink(video.voice) {
-                            if ["mp4", "m3u8"].contains(video.url.pathExtension.lowercased()) { PlaybackView(url: video.url) }
+                            if ["mp4", "m3u8"].contains(video.url.pathExtension.lowercased()) { PlaybackView(url: video.url, headers: ["Referer": AnimeSource.yummyanime.site.absoluteString, "Origin": AnimeSource.yummyanime.site.absoluteString]) }
                             else { WebSourceView(initialURL: video.url) }
                         }
                     }
@@ -96,6 +96,9 @@ struct YummyEpisodesView: View {
                     let key = number + "|" + url.absoluteString
                     guard seen.insert(key).inserted else { return nil }
                     let data = item["data"] as? [String: Any]
+                    // Match Android's exclusion of region-locked Alloha entries.
+                    let host = (data?["player"] as? String ?? "").lowercased()
+                    if host.contains("alloha") || raw.lowercased().contains("alloha") { return nil }
                     let voice = [data?["dubbing"] as? String, data?["player"] as? String].compactMap { $0 }.joined(separator: " / ")
                     return Video(id: key, number: number, voice: voice.isEmpty ? "Плеер" : voice, url: url)
                 }
