@@ -39,6 +39,7 @@ struct SourcesView: View {
                     NavigationLink("AnimeGo · каталог и серии") { HTMLCatalogView(source: .animego) }
                     NavigationLink("AnimeFox · каталог") { HTMLCatalogView(source: .animefox) }
                     NavigationLink("Shikimori · каталог метаданных") { ShikimoriCatalogView() }
+                    NavigationLink("YummyAnime · серии и озвучки") { YummyCatalogView() }
                 }
                 Section("Веб-источники · поиск и выбор на сайте") {
                     ForEach(AnimeSource.allCases) { source in
