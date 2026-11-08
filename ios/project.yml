@@ -13,14 +13,20 @@ targets:
     sources: [AniCrN]
     dependencies:
       - package: SwiftSoup
+    info:
+      path: AniCrN/Info.plist
+      properties:
+        CFBundleDisplayName: AniCrN
+        UILaunchScreen: {}
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.anicrn.ios
         SWIFT_VERSION: "5.0"
-        GENERATE_INFOPLIST_FILE: YES
+        GENERATE_INFOPLIST_FILE: NO
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
-        INFOPLIST_KEY_NSAppTransportSecurity_NSAllowsLocalNetworking: YES
         SWIFT_OBJC_BRIDGING_HEADER: AniCrN/Bridge.h
         LIBRARY_SEARCH_PATHS: $(inherited) $(PROJECT_DIR)/../core/target/aarch64-apple-ios/release
         OTHER_LDFLAGS: $(inherited) -lanicrn_core

@@ -9,6 +9,10 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - name: Playlist transport regression tests
+        run: |
+          cp ios/AniCrN/HLSPlaylist.swift transport-tests/Sources/HLSPlaylist.swift
+          swift test --package-path transport-tests
       - name: Rust tests and device library
         run: |
           rustup target add aarch64-apple-ios
@@ -23,6 +27,7 @@ jobs:
         run: xcodebuild -project ios/AniCrN.xcodeproj -scheme AniCrN -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
       - name: Package for Sideloadly
         run: |
+          /usr/libexec/PlistBuddy -c 'Print :NSAppTransportSecurity:NSAllowsLocalNetworking' build/Build/Products/Release-iphoneos/AniCrN.app/Info.plist
           mkdir -p build/package/Payload
           cp -R build/Build/Products/Release-iphoneos/AniCrN.app build/package/Payload/
           cd build/package

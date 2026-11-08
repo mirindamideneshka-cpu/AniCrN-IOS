@@ -105,19 +105,7 @@ final class HLSProxy {
         tasks[ObjectIdentifier(connection)] = task; task.resume()
     }
     private func rewrite(_ playlist: String, base: URL) -> String {
-        let uri = try! NSRegularExpression(pattern: #"URI="([^"]+)""#)
-        return playlist.components(separatedBy: "\n").map { line in
-            if !line.hasPrefix("#"), !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-               let url = URL(string: line.trimmingCharacters(in: .whitespacesAndNewlines), relativeTo: base)?.absoluteURL {
-                return ["https", "http"].contains(url.scheme ?? "") ? route(url).absoluteString : line
-            }
-            var result = line
-            for match in uri.matches(in: line, range: NSRange(line.startIndex..., in: line)).reversed() {
-                guard let range = Range(match.range(at: 1), in: line), let url = URL(string: String(line[range]), relativeTo: base)?.absoluteURL, ["http", "https"].contains(url.scheme ?? ""), let replace = Range(match.range(at: 1), in: result) else { continue }
-                result.replaceSubrange(replace, with: route(url).absoluteString)
-            }
-            return result
-        }.joined(separator: "\n")
+        HLSPlaylist.rewrite(playlist, base: base, route: route)
     }
     private func reply(_ connection: NWConnection, status: Int, data: Data, headers: [String: String]) {
         var head = "HTTP/1.1 \(status) Response\r\nConnection: close\r\nContent-Length: \(data.count)\r\n"

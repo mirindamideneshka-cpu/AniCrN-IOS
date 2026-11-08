@@ -1,4 +1,7 @@
 build/
 target/
+.build/
+ios/AniCrN/Info.plist
+transport-tests/Sources/*.swift
 *.xcodeproj/
 .DS_Store
