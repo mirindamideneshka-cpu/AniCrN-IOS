@@ -112,7 +112,9 @@ struct WebSourceView: View {
                 ScrollView(.horizontal) {
                     HStack {
                         ForEach(Array(streams.enumerated()), id: \.element.id) { index, stream in
-                            NavigationLink("Поток \(index + 1) · \(stream.url.pathExtension.uppercased())") { PlaybackView(url: stream.url, cookies: stream.cookies) }
+                            NavigationLink("Поток \(index + 1) · \(stream.url.pathExtension.uppercased())") {
+                                PlaybackView(url: stream.url, cookies: stream.cookies, headers: stream.page.map { ["Referer": $0.absoluteString, "Origin": ($0.scheme ?? "https") + "://" + ($0.host ?? "")] } ?? [:])
+                            }
                         }
                     }.padding()
                 }

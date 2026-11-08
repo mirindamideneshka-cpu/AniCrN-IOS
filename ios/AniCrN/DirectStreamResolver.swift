@@ -38,7 +38,9 @@ struct ResolvedPlayerView: View {
             if loading { ProgressView() }
             if let error { Text(error).foregroundStyle(.red) }
             ForEach(streams, id: \.absoluteString) { url in
-                NavigationLink("Прямой поток · " + url.pathExtension.uppercased()) { PlaybackView(url: url) }
+                NavigationLink("Прямой поток · " + url.pathExtension.uppercased()) {
+                    PlaybackView(url: url, headers: ["Referer": referer.absoluteString, "Origin": "https://" + (referer.host ?? "")])
+                }
             }
             NavigationLink("Открыть веб-плеер и перехватить поток") { WebSourceView(initialURL: player) }
         }.navigationTitle("Источники видео").task {
