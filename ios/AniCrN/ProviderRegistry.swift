@@ -99,7 +99,7 @@ enum ProviderNetwork {
         request.setValue("https://" + (site.host ?? ""), forHTTPHeaderField: "Origin")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("AniCrN-iOS/0.1", forHTTPHeaderField: "User-Agent")
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await ProviderHTTP.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else { throw URLError(.badServerResponse) }
         return try JSONSerialization.jsonObject(with: data)
     }

@@ -43,6 +43,7 @@ targets:
       - path: AniCrN/HLSPlaylist.swift
       - path: AniCrN/MediaRouteCodec.swift
       - path: AniCrN/MP4ResourceLoader.swift
+      - path: AniCrN/ProviderHTTP.swift
       - path: AniCrN/StreamCapture.swift
       - path: AniCrN/PlaybackView.swift
       - path: TransportUITests

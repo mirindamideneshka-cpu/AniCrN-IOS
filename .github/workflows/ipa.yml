@@ -29,6 +29,7 @@ jobs:
           cp ios/AniCrN/AnimeGoEpisodeParser.swift transport-tests/Sources/AnimeGoEpisodeParser.swift
           cp ios/AniCrN/YummySlug.swift transport-tests/Sources/YummySlug.swift
           cp ios/AniCrN/YummyVideoParser.swift transport-tests/Sources/YummyVideoParser.swift
+          cp ios/AniCrN/ProviderHTTP.swift transport-tests/Sources/ProviderHTTP.swift
           swift test --package-path transport-tests
       - name: Rust tests and device library
         run: |
