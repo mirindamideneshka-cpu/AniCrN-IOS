@@ -44,9 +44,16 @@ jobs:
       - name: Build unsigned device app
         run: xcodebuild -project ios/AniCrN.xcodeproj -scheme AniCrN -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" build
       - name: iOS Simulator transport tests
+        timeout-minutes: 15
         run: |
           DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(v["udid"] for values in d["devices"].values() for v in values if "iPhone" in v["name"]))')
-          xcodebuild test -project ios/AniCrN.xcodeproj -scheme TransportTests -destination "platform=iOS Simulator,id=$DEVICE_ID" -derivedDataPath build-simulator CODE_SIGNING_ALLOWED=NO
+          xcodebuild test -project ios/AniCrN.xcodeproj -scheme TransportTests -destination "platform=iOS Simulator,id=$DEVICE_ID" -derivedDataPath build-simulator -resultBundlePath build-simulator/TransportTests.xcresult -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Simulator-test-results
+          path: build-simulator/TransportTests.xcresult
+          if-no-files-found: ignore
       - name: Package for Sideloadly
         run: |
           /usr/libexec/PlistBuddy -c 'Print :NSAppTransportSecurity:NSAllowsLocalNetworking' build/Build/Products/Release-iphoneos/AniCrN.app/Info.plist
