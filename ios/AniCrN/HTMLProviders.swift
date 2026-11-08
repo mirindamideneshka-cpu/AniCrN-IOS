@@ -59,15 +59,8 @@ enum HTMLProviders {
             components = mirror
         }
         let documentBase = components.url!
-        let doc = try SwiftSoup.parse(html)
-        let cards = try doc.select(source == .animego ? ".ani-grid__item, .ani-list__item" : source == .animevost ? "article, .shortstory, .short, .story, .news, .item, .th-item" : "article.short")
-        var seen = Set<String>()
-        return try cards.array().compactMap { card in
-            let selector = source == .animego ? "a[href*=/anime/]" : source == .animevost ? "a[href*=.html]" : "a.short-title[href], a.tc-item[href]"
-            guard let link = try card.select(selector).first(), let url = try absolute(link.attr("href"), base: documentBase), seen.insert(url.absoluteString).inserted else { return nil }
-            let titleElement = try card.select(source == .animego ? ".ani-grid__item-title, .ani-list__item-title" : source == .animevost ? "h1,h2,h3,.title,.shortstoryHead" : "a.short-title").first()
-            let title = try titleElement?.text() ?? link.text()
-            return ProviderEntry(id: url.absoluteString, title: title.isEmpty ? url.lastPathComponent : title, url: url)
+        return try ProviderHTMLParser.cards(html, source: source.rawValue, base: documentBase).map {
+            ProviderEntry(id: $0.url.absoluteString, title: $0.title, url: $0.url)
         }
     }
     static func episodes(_ page: URL) async throws -> [ProviderEntry] {
