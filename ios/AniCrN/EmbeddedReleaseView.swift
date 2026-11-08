@@ -12,7 +12,7 @@ struct EmbeddedReleaseView: View {
             if loading { ProgressView() }
             if let error { Text(error).foregroundStyle(.red) }
             ForEach(entries) { entry in
-                if let url = entry.url { NavigationLink(entry.title) { WebSourceView(initialURL: url) } }
+                if let url = entry.url { NavigationLink(entry.title) { ResolvedPlayerView(player: url, referer: page, isVost: source == .animevost) } }
             }
             NavigationLink("Открыть плеер на странице") { WebSourceView(initialURL: page) }
         }.navigationTitle(source.title).task {
@@ -25,19 +25,11 @@ struct EmbeddedReleaseView: View {
                     return ProviderEntry(id: url.absoluteString, title: "Плеер · " + (url.host ?? source.title), url: url)
                 }
                 if source == .animevost {
-                    let normalized = html.replacingOccurrences(of: "\\/", with: "/").replacingOccurrences(of: "&amp;", with: "&")
-                    let pattern = #"["']([^"']*(?:серия|Серия)[^"']*)["']\s*:\s*["']?(\d+)"#
-                    let regex = try NSRegularExpression(pattern: pattern)
-                    for match in regex.matches(in: normalized, range: NSRange(normalized.startIndex..., in: normalized)) {
-                        guard let nameRange = Range(match.range(at: 1), in: normalized), let idRange = Range(match.range(at: 2), in: normalized) else { continue }
-                        var c = URLComponents(url: page, resolvingAgainstBaseURL: true)!
-                        c.path = "/mplay/index.php"; c.queryItems = [URLQueryItem(name: "id", value: String(normalized[idRange]))]
-                        guard let url = c.url, seen.insert(url.absoluteString).inserted else { continue }
-                        entries.append(ProviderEntry(id: url.absoluteString, title: String(normalized[nameRange]), url: url))
-                    }
+                    entries += try DirectStreamResolver.vostPlayers(in: html, page: page)
                 }
             } catch { self.error = error.localizedDescription }
             loading = false
         }
     }
 }
+
