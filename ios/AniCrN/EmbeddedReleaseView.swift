@@ -27,6 +27,22 @@ struct EmbeddedReleaseView: View {
                 if source == .animevost {
                     entries += try DirectStreamResolver.vostPlayers(in: html, page: page)
                 }
+                if source == .animefox, let iframe = entries.first?.url {
+                    let playerHTML = try await HTMLProviders.get(iframe, referer: page)
+                    let playerDoc = try SwiftSoup.parse(playerHTML)
+                    let season = try playerDoc.select(".serial-seasons-box option[selected]").first()?.attr("value")
+                        ?? playerDoc.select(".serial-seasons-box option").first()?.attr("value") ?? "1"
+                    for option in try playerDoc.select(".serial-series-box option[data-id][data-hash]").array() {
+                        if try option.attr("data-other-translation") == "true" { continue }
+                        let episode = try option.attr("value")
+                        guard let number = Int(episode), number > 0 else { continue }
+                        var c = URLComponents(url: iframe, resolvingAgainstBaseURL: true)!
+                        c.queryItems = (c.queryItems ?? []).filter { !["season", "episode"].contains($0.name) }
+                            + [URLQueryItem(name: "season", value: season), URLQueryItem(name: "episode", value: episode)]
+                        guard let url = c.url, seen.insert(url.absoluteString).inserted else { continue }
+                        entries.append(ProviderEntry(id: url.absoluteString, title: "Сезон \(season) · серия \(episode)", url: url))
+                    }
+                }
             } catch { self.error = error.localizedDescription }
             loading = false
         }
