@@ -47,6 +47,11 @@ struct SourcesView: View {
                         NavigationLink(source.title) { WebSourceView(initialURL: source.site) }
                     }
                 }
+                Section {
+                    let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.1"
+                    let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "local"
+                    Text("AniCrN \(version) · сборка \(build)").font(.caption).foregroundStyle(.secondary)
+                }
             }.navigationTitle("Источники")
         }
     }

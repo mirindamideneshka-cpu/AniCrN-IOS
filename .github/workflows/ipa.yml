@@ -42,7 +42,7 @@ jobs:
           cd ios
           xcodegen generate
       - name: Build unsigned device app
-        run: xcodebuild -project ios/AniCrN.xcodeproj -scheme AniCrN -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+        run: xcodebuild -project ios/AniCrN.xcodeproj -scheme AniCrN -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO CURRENT_PROJECT_VERSION="$GITHUB_RUN_NUMBER" build
       - name: iOS Simulator transport tests
         run: |
           DEVICE_ID=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(v["udid"] for values in d["devices"].values() for v in values if "iPhone" in v["name"]))')
