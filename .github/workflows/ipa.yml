@@ -1,0 +1,33 @@
+name: Build IPA
+on:
+  push:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust tests and device library
+        run: |
+          rustup target add aarch64-apple-ios
+          cargo test --manifest-path core/Cargo.toml
+          cargo build --manifest-path core/Cargo.toml --release --target aarch64-apple-ios
+      - name: Generate project
+        run: |
+          brew install xcodegen
+          cd ios
+          xcodegen generate
+      - name: Build unsigned device app
+        run: xcodebuild -project ios/AniCrN.xcodeproj -scheme AniCrN -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+      - name: Package for Sideloadly
+        run: |
+          mkdir -p build/package/Payload
+          cp -R build/Build/Products/Release-iphoneos/AniCrN.app build/package/Payload/
+          cd build/package
+          zip -qr ../AniCrN-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AniCrN-unsigned
+          path: build/AniCrN-unsigned.ipa
