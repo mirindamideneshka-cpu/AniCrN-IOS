@@ -71,6 +71,7 @@ struct CatalogView: View {
                 }.padding()
             }
             .navigationTitle("AniCrN")
+            .toolbar { NavigationLink { WebSourceView() } label: { Label("Веб-источник", systemImage: "network") } }
             .searchable(text: $query, prompt: "Поиск AniLiberty")
             .navigationDestination(for: Anime.self) { DetailView(anime: $0) }
             .task(id: query) {
@@ -147,3 +148,4 @@ struct PlaybackView: View {
             .onDisappear { player.pause() }
     }
 }
+
