@@ -32,3 +32,23 @@ targets:
         OTHER_LDFLAGS: $(inherited) -lanicrn_core
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
+  TransportTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: ../transport-tests/Tests
+        excludes: [ProviderHTMLParserTests.swift, YummyVideoParserTests.swift]
+      - path: AniCrN/HLSProxy.swift
+      - path: AniCrN/HLSPlaylist.swift
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.anicrn.transporttests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "5.0"
+schemes:
+  TransportTests:
+    build:
+      targets:
+        TransportTests: all
+    test:
+      targets: [TransportTests]

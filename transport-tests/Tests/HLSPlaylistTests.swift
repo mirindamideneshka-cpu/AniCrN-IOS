@@ -1,5 +1,7 @@
 import XCTest
+#if canImport(TransportChecks)
 @testable import TransportChecks
+#endif
 
 final class HLSPlaylistTests: XCTestCase {
     func testNestedPlaylistSegmentKeyAndMap() {

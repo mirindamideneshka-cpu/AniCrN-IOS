@@ -1,7 +1,9 @@
 import XCTest
 import Foundation
 import Network
+#if canImport(TransportChecks)
 @testable import TransportChecks
+#endif
 
 final class HLSProxyTests: XCTestCase {
     func testLoopbackFetchesAndRewritesPlaylist() throws {
