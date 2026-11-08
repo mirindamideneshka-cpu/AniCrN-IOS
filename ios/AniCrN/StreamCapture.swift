@@ -29,7 +29,15 @@ struct StreamCaptureBrowser: UIViewRepresentable {
         view.navigationDelegate = context.coordinator
         var request = URLRequest(url: url)
         if let referer { request.setValue(referer.absoluteString, forHTTPHeaderField: "Referer") }
-        view.load(request)
+        // URLSession and WKWebView have separate cookie stores. Preserve cookies set
+        // while resolving the provider before navigating to its player page.
+        let cookies = HTTPCookieStorage.shared.cookies(for: url) ?? []
+        let group = DispatchGroup()
+        for cookie in cookies {
+            group.enter()
+            configuration.websiteDataStore.httpCookieStore.setCookie(cookie) { group.leave() }
+        }
+        group.notify(queue: .main) { [weak view] in view?.load(request) }
         return view
     }
     func updateUIView(_ view: WKWebView, context: Context) {
