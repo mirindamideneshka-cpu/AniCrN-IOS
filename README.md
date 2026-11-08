@@ -1,24 +1,31 @@
 # AniCrN iOS
 
-Начальный перенос Android AniCrN на SwiftUI + Rust. iOS 16+.
+Перенос Android AniCrN на SwiftUI + Rust, iOS 16+.
 
-Swift: URLSession, интерфейс каталога/поиска/серий, AVPlayer.
-Rust: нормализация ответа каталога AniLiberty через C ABI с явным освобождением памяти.
-Контракты и адреса взяты из Android AniLibertyProvider в архиве от 2026-11-01.
+Swift отвечает за интерфейс, сеть, WKWebView и AVPlayer. Rust нормализует
+каталог AniLiberty и извлекает прямые HLS/MP4 URL через C ABI.
 
-## IPA для Sideloadly
+## Сборка IPA
 
-GitHub Actions → Build IPA → Run workflow. Скачайте артефакт
-`AniCrN-unsigned`, распакуйте ZIP и откройте IPA в Sideloadly для подписи и установки.
-Workflow также запускается при push. Apple-сертификаты в репозитории не нужны.
+GitHub Actions → Build IPA → артефакт AniCrN-unsigned. Распакуйте ZIP и
+откройте IPA в Sideloadly для подписи и установки. Секреты Apple для CI не нужны.
+Устройство: iPhone arm64. Simulator target пока не настроен.
+На macOS для локальной сборки нужны Xcode, Rust и XcodeGen; команды находятся
+в .github/workflows/ipa.yml.
 
-На macOS: установить Rust и XcodeGen, выполнить команды из `.github/workflows/ipa.yml`.
-Сейчас конфигурация линковки рассчитана на физический iPhone arm64.
+## Покрытие
 
-## Состояние переноса
+AniLiberty, AnimeGo, AnimeFox, AnimeLib, YummyAnime, каталог Shikimori и
+дополнительный AnimeVost представлены в коде. Это не заявление полного паритета:
+матрица конкретных возможностей и пробелов находится в PORTING.md.
 
-Реализован первый исходный сценарий: каталог AniLiberty → поиск → серии → HLS.
-Это начальная реализация: сборку Xcode и воспроизведение на устройстве ещё нужно проверить.
-Избранное, история/прогресс, остальные провайдеры, расширенные настройки,
-Android mpv/шейдеры и обработка заголовков HLS ещё не перенесены.
-Rust-тесты выполняются в CI; на текущем Windows Rust отсутствует в PATH.
+Веб-потоки обнаруживаются через fetch/XHR, resource timing и media src.
+Cookies/User-Agent и контекст страницы используются при открытии встроенного
+плеера. MP4 byte-range transport и HLS loopback proxy передают заголовки источника.
+HLS пока использует временные файлы перед выдачей ресурса; live/disk limits и
+реальная работа всех источников требуют дальнейшей проверки.
+
+CI проверяет Rust, Swift HTML/HLS fixtures, loopback transport, JS capture,
+компиляцию Xcode и IPA. Не все новые ревизии уже прошли все эти этапы — смотрите
+результат конкретного run. Воспроизведение на физическом iPhone ещё не подтверждено.
+Избранное, история/прогресс, расширенные настройки и Android mpv/шейдеры не перенесены.
