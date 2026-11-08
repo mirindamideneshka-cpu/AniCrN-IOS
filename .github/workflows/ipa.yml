@@ -13,6 +13,7 @@ jobs:
         run: |
           mkdir -p transport-tests/Sources
           cp ios/AniCrN/HLSPlaylist.swift transport-tests/Sources/HLSPlaylist.swift
+          cp ios/AniCrN/HLSProxy.swift transport-tests/Sources/HLSProxy.swift
           swift test --package-path transport-tests
       - name: Rust tests and device library
         run: |
