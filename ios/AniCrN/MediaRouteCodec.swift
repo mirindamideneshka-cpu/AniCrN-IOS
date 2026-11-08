@@ -6,7 +6,7 @@ final class MediaRouteCodec {
     private let key = SymmetricKey(size: .bits256)
     func encode(_ url: URL) throws -> String {
         let sealed = try AES.GCM.seal(Data(url.absoluteString.utf8), using: key)
-        guard let data = sealed.combined else { throw URLError(.cannotEncodeContentData) }
+        guard let data = sealed.combined else { throw URLError(.badURL) }
         let token = data.base64EncodedString().replacingOccurrences(of: "+", with: "-").replacingOccurrences(of: "/", with: "_").replacingOccurrences(of: "=", with: "")
         return "/" + token + "." + (url.pathExtension.isEmpty ? "bin" : url.pathExtension)
     }
