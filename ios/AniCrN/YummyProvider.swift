@@ -84,13 +84,7 @@ struct YummyCatalogView: View {
 
 struct YummyEpisodesView: View {
     let anime: Anime
-    struct Video: Identifiable {
-        let id: String
-        let number: String
-        let voice: String
-        let url: URL
-    }
-    @State private var videos: [Video] = []
+    @State private var videos: [YummyVideo] = []
     @State private var error: String?
     @State private var loading = true
     private var numbers: [String] {
@@ -115,20 +109,7 @@ struct YummyEpisodesView: View {
             do {
                 let id = anime.id.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? anime.id
                 let row = try await YummyAPI.request("/anime/" + id, query: [URLQueryItem(name: "need_videos", value: "1")]) as? [String: Any]
-                var seen = Set<String>()
-                videos = (row?["videos"] as? [[String: Any]] ?? []).compactMap { item in
-                    let number = (item["number"] as? String) ?? (item["number"] as? NSNumber)?.stringValue ?? ""
-                    guard !number.isEmpty, let raw = item["iframe_url"] as? String,
-                          let url = HTMLProviders.absolute(raw, base: AnimeSource.yummyanime.site) else { return nil }
-                    let key = number + "|" + url.absoluteString
-                    guard seen.insert(key).inserted else { return nil }
-                    let data = item["data"] as? [String: Any]
-                    // Match Android's exclusion of region-locked Alloha entries.
-                    let host = (data?["player"] as? String ?? "").lowercased()
-                    if host.contains("alloha") || raw.lowercased().contains("alloha") { return nil }
-                    let voice = [data?["dubbing"] as? String, data?["player"] as? String].compactMap { $0 }.joined(separator: " / ")
-                    return Video(id: key, number: number, voice: voice.isEmpty ? "Плеер" : voice, url: url)
-                }
+                videos = YummyVideoParser.parse(row?["videos"] as? [[String: Any]] ?? [], base: AnimeSource.yummyanime.site)
             } catch { self.error = error.localizedDescription }
             loading = false
         }
