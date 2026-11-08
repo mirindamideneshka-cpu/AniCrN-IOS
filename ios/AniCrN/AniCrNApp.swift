@@ -148,7 +148,7 @@ struct EpisodeSourcesView: View {
             if let error { Text(error).foregroundStyle(.red) }
             if let episode {
                 ForEach(sources(episode), id: \.0) { quality, url in
-                    NavigationLink(quality) { PlaybackView(url: url) }
+                    NavigationLink(quality) { PlaybackView(url: url, headers: ["Referer": "https://anilibria.top/", "Origin": "https://anilibria.top"]) }
                 }
                 if sources(episode).isEmpty { Text("Источник не вернул доступных потоков") }
             }
