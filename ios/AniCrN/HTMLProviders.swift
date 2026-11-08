@@ -8,12 +8,19 @@ struct ProviderEntry: Identifiable {
 }
 
 enum HTMLProviders {
-    static func get(_ url: URL, referer: URL) async throws -> String {
+    static func get(_ url: URL, referer: URL, form: [URLQueryItem]? = nil) async throws -> String {
         var request = URLRequest(url: url)
         request.timeoutInterval = 25
         request.setValue(referer.absoluteString, forHTTPHeaderField: "Referer")
         request.setValue("Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 Version/16.0 Mobile Safari/604.1", forHTTPHeaderField: "User-Agent")
         request.setValue("XMLHttpRequest", forHTTPHeaderField: "X-Requested-With")
+        if let form {
+            var body = URLComponents()
+            body.queryItems = form
+            request.httpMethod = "POST"
+            request.setValue("application/x-www-form-urlencoded; charset=utf-8", forHTTPHeaderField: "Content-Type")
+            request.httpBody = body.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B").data(using: .utf8)
+        }
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode), let text = String(data: data, encoding: .utf8) else { throw URLError(.badServerResponse) }
         return text
@@ -41,7 +48,8 @@ enum HTMLProviders {
             components.path = query.isEmpty ? (page == 1 ? "/anime/" : "/anime/page/\(page)/") : "/index.php"
             components.queryItems = query.isEmpty ? nil : [URLQueryItem(name: "do", value: "search"), URLQueryItem(name: "subaction", value: "search"), URLQueryItem(name: "story", value: query)]
         }
-        let doc = try SwiftSoup.parse(try await get(components.url!, referer: base))
+        let form = source == .animefox && !query.isEmpty ? [URLQueryItem(name: "do", value: "search"), URLQueryItem(name: "subaction", value: "search"), URLQueryItem(name: "story", value: query), URLQueryItem(name: "catlist[]", value: "1")] : nil
+        let doc = try SwiftSoup.parse(try await get(components.url!, referer: base, form: form))
         let cards = try doc.select(source == .animego ? ".ani-grid__item, .ani-list__item" : source == .animevost ? "article, .shortstory, .short, .story, .news, .item, .th-item" : "article.short")
         var seen = Set<String>()
         return try cards.array().compactMap { card in
