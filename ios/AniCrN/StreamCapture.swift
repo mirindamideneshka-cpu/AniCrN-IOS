@@ -7,6 +7,7 @@ struct CapturedStream: Identifiable {
     let url: URL
     let page: URL?
     let cookies: [HTTPCookie]
+    let mediaType: String
 }
 
 // Observation of page-level fetch/XHR, resource timing and HTML media in all frames.
@@ -42,11 +43,12 @@ struct StreamCaptureBrowser: UIViewRepresentable {
         func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
             guard let body = message.body as? [String: String], let raw = body["url"],
                   let url = URL(string: raw), ["https", "http"].contains(url.scheme?.lowercased() ?? ""),
-                  ["m3u8", "mp4"].contains(url.pathExtension.lowercased()), seen.insert(raw).inserted else { return }
+                  (["m3u8", "mp4"].contains(url.pathExtension.lowercased()) || ["hls", "mp4"].contains(body["type"] ?? "")), seen.insert(raw).inserted else { return }
+            let type = body["type"] ?? (url.pathExtension.lowercased() == "m3u8" ? "hls" : "mp4")
             let page = message.frameInfo.request.url
             // Preserve domain/path/secure attributes; AVFoundation selects matching cookies.
             message.webView?.configuration.websiteDataStore.httpCookieStore.getAllCookies { [weak self] cookies in
-                self?.onStream(CapturedStream(url: url, page: page, cookies: cookies))
+                self?.onStream(CapturedStream(url: url, page: page, cookies: cookies, mediaType: type))
             }
         }
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) { onError(error.localizedDescription) }
@@ -55,23 +57,24 @@ struct StreamCaptureBrowser: UIViewRepresentable {
     static let script = #"""
     (() => {
       const seen = new Set();
-      const report = raw => {
+      const report = (raw, mime = '') => {
         try {
           const u = new URL(raw, location.href);
-          if (!/^https?:$/.test(u.protocol) || !/\.(m3u8|mp4)$/i.test(u.pathname) || seen.has(u.href)) return;
+          const type = /mpegurl/i.test(mime) || /\.m3u8$/i.test(u.pathname) ? 'hls' : /video\/mp4/i.test(mime) || /\.mp4$/i.test(u.pathname) ? 'mp4' : '';
+          if (!/^https?:$/.test(u.protocol) || !type || seen.has(u.href)) return;
           seen.add(u.href);
-          window.webkit.messageHandlers.anicrnStream.postMessage({url: u.href});
+          window.webkit.messageHandlers.anicrnStream.postMessage({url: u.href, type});
         } catch (_) {}
       };
       const fetch = window.fetch;
       window.fetch = function(input, init) {
         report(typeof input === 'string' ? input : input.url);
-        return fetch.apply(this, arguments).then(response => { report(response.url); return response; });
+        return fetch.apply(this, arguments).then(response => { report(response.url, response.headers.get('content-type') || ''); return response; });
       };
       const open = XMLHttpRequest.prototype.open;
       XMLHttpRequest.prototype.open = function(method, url) {
         report(url);
-        this.addEventListener('load', () => report(this.responseURL), {once:true});
+        this.addEventListener('load', () => report(this.responseURL, this.getResponseHeader('content-type') || ''), {once:true});
         return open.apply(this, arguments);
       };
       try { new PerformanceObserver(list => list.getEntries().forEach(e => report(e.name))).observe({entryTypes:['resource']}); } catch (_) {}
@@ -113,7 +116,7 @@ struct WebSourceView: View {
                     HStack {
                         ForEach(Array(streams.enumerated()), id: \.element.id) { index, stream in
                             NavigationLink("Поток \(index + 1) · \(stream.url.pathExtension.uppercased())") {
-                                PlaybackView(url: stream.url, cookies: stream.cookies, headers: stream.page.map { ["Referer": $0.absoluteString, "Origin": ($0.scheme ?? "https") + "://" + ($0.host ?? "")] } ?? [:])
+                                PlaybackView(url: stream.url, cookies: stream.cookies, headers: stream.page.map { ["Referer": $0.absoluteString, "Origin": ($0.scheme ?? "https") + "://" + ($0.host ?? "")] } ?? [:], mediaType: stream.mediaType)
                             }
                         }
                     }.padding()

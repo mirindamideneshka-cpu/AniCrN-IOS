@@ -8,11 +8,12 @@ final class PlaybackSession: ObservableObject {
     private var observation: NSKeyValueObservation?
     private var failureObserver: NSObjectProtocol?
     @Published var error: String?
-    init(url: URL, cookies: [HTTPCookie], headers: [String: String]) {
-        let loader = url.pathExtension.lowercased() == "mp4" && !headers.isEmpty ? MP4ResourceLoader(url: url, headers: headers, cookies: cookies) : nil
+    init(url: URL, cookies: [HTTPCookie], headers: [String: String], mediaType: String?) {
+        let type = mediaType ?? (url.pathExtension.lowercased() == "m3u8" ? "hls" : url.pathExtension.lowercased())
+        let loader = type == "mp4" && !headers.isEmpty ? MP4ResourceLoader(url: url, headers: headers, cookies: cookies) : nil
         self.loader = loader
         player = AVPlayer()
-        if url.pathExtension.lowercased() == "m3u8" && !headers.isEmpty {
+        if type == "hls" && !headers.isEmpty {
             let proxy = HLSProxy(headers: headers, cookies: cookies)
             self.proxy = proxy
             proxy.start(url: url) { [weak self] result in
@@ -47,8 +48,8 @@ final class PlaybackSession: ObservableObject {
 
 struct PlaybackView: View {
     @StateObject private var session: PlaybackSession
-    init(url: URL, cookies: [HTTPCookie] = [], headers: [String: String] = [:]) {
-        _session = StateObject(wrappedValue: PlaybackSession(url: url, cookies: cookies, headers: headers))
+    init(url: URL, cookies: [HTTPCookie] = [], headers: [String: String] = [:], mediaType: String? = nil) {
+        _session = StateObject(wrappedValue: PlaybackSession(url: url, cookies: cookies, headers: headers, mediaType: mediaType))
     }
     var body: some View {
         VStack {
