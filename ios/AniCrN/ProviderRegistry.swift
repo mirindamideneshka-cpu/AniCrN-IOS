@@ -23,7 +23,7 @@ enum AnimeSource: String, CaseIterable, Identifiable {
         case .shikimori: address = "https://shikimori.one"
         case .animelib: address = "https://v5.animelib.org/ru"
         case .yummyanime: address = "https://ru.yummyani.me"
-        case .animevost: address = "https://animevost.org"
+        case .animevost: address = "https://v13.vost.pw"
         }
         return URL(string: address)!
     }
@@ -40,6 +40,7 @@ struct SourcesView: View {
                     NavigationLink("AnimeFox · каталог") { HTMLCatalogView(source: .animefox) }
                     NavigationLink("Shikimori · каталог метаданных") { ShikimoriCatalogView() }
                     NavigationLink("YummyAnime · серии и озвучки") { YummyCatalogView() }
+                    NavigationLink("AnimeVost · каталог") { HTMLCatalogView(source: .animevost) }
                 }
                 Section("Веб-источники · поиск и выбор на сайте") {
                     ForEach(AnimeSource.allCases) { source in

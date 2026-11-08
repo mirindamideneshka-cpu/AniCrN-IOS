@@ -34,17 +34,20 @@ enum HTMLProviders {
         if source == .animego {
             components.path = query.isEmpty ? "/anime" : "/search/anime"
             components.queryItems = query.isEmpty ? [URLQueryItem(name: "page", value: String(page))] : [URLQueryItem(name: "q", value: query)]
+        } else if source == .animevost {
+            components.path = query.isEmpty ? (page == 1 ? "/tip/tv/" : "/tip/tv/page/\(page)/") : "/index.php"
+            components.queryItems = query.isEmpty ? nil : [URLQueryItem(name: "do", value: "search"), URLQueryItem(name: "subaction", value: "search"), URLQueryItem(name: "story", value: query)]
         } else {
             components.path = query.isEmpty ? (page == 1 ? "/anime/" : "/anime/page/\(page)/") : "/index.php"
             components.queryItems = query.isEmpty ? nil : [URLQueryItem(name: "do", value: "search"), URLQueryItem(name: "subaction", value: "search"), URLQueryItem(name: "story", value: query)]
         }
         let doc = try SwiftSoup.parse(try await get(components.url!, referer: base))
-        let cards = try doc.select(source == .animego ? ".ani-grid__item, .ani-list__item" : "article.short")
+        let cards = try doc.select(source == .animego ? ".ani-grid__item, .ani-list__item" : source == .animevost ? "article, .shortstory, .short, .story, .news, .item, .th-item" : "article.short")
         var seen = Set<String>()
         return try cards.array().compactMap { card in
-            let selector = source == .animego ? "a[href*=/anime/]" : "a.short-title[href], a.tc-item[href]"
+            let selector = source == .animego ? "a[href*=/anime/]" : source == .animevost ? "a[href*=.html]" : "a.short-title[href], a.tc-item[href]"
             guard let link = try card.select(selector).first(), let url = try absolute(link.attr("href"), base: base), seen.insert(url.absoluteString).inserted else { return nil }
-            let titleElement = try card.select(source == .animego ? ".ani-grid__item-title, .ani-list__item-title" : "a.short-title").first()
+            let titleElement = try card.select(source == .animego ? ".ani-grid__item-title, .ani-list__item-title" : source == .animevost ? "h1,h2,h3,.title,.shortstoryHead" : "a.short-title").first()
             let title = try titleElement?.text() ?? link.text()
             return ProviderEntry(id: url.absoluteString, title: title.isEmpty ? url.lastPathComponent : title, url: url)
         }
@@ -118,7 +121,7 @@ struct HTMLCatalogView: View {
             ForEach(entries) { entry in
                 if let url = entry.url {
                     if source == .animego { NavigationLink(entry.title) { AnimeGoEpisodesView(url: url) } }
-                    else { NavigationLink(entry.title) { WebSourceView(initialURL: url) } }
+                    else { NavigationLink(entry.title) { EmbeddedReleaseView(source: source, page: url) } }
                 }
             }
             if !loading && entries.isEmpty && error == nil { Text("Ничего не найдено") }
