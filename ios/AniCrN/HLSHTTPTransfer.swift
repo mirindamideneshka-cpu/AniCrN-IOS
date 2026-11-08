@@ -14,6 +14,7 @@ final class HLSHTTPTransfer: NSObject, URLSessionDataDelegate {
     private var playlist = false
     private var decided = false
     private var ended = false
+    private var headersSent = false
     private let headOnly: Bool
     init(connection: NWConnection, queue: DispatchQueue, headOnly: Bool, rewrite: @escaping (String, URL) -> String, done: @escaping () -> Void) {
         self.connection = connection; self.queue = queue; self.headOnly = headOnly; self.rewrite = rewrite; self.done = done
@@ -57,11 +58,12 @@ final class HLSHTTPTransfer: NSObject, URLSessionDataDelegate {
             decided = true
             if !playlist {
                 connection.send(content: headers(http, chunked: true), completion: .contentProcessed { [weak self] error in if error != nil { self?.finish() } })
+                headersSent = true
                 let first = buffer; buffer.removeAll(); sendChunk(first)
             }
         } else if playlist { buffer.append(data) }
         else { sendChunk(data) }
-        if playlist && buffer.count > 2 * 1024 * 1024 { finish() }
+        if playlist && buffer.count > 2 * 1024 * 1024 { failHTTP() }
     }
     private func sendChunk(_ data: Data) {
         guard !ended else { return }
@@ -72,11 +74,18 @@ final class HLSHTTPTransfer: NSObject, URLSessionDataDelegate {
             if error != nil { self.finish() } else { self.task?.resume() }
         })
     }
+    private func failHTTP() {
+        guard !ended else { return }
+        guard !headersSent else { finish(); return }
+        headersSent = true
+        task?.cancel()
+        connection.send(content: Data("HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".utf8), completion: .contentProcessed { [weak self] _ in self?.finish() })
+    }
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         guard !ended, !headOnly else { return }
-        guard error == nil, let http = response else { finish(); return }
+        guard error == nil, let http = response else { if !headersSent { failHTTP() } else { finish() }; return }
         if playlist {
-            guard let text = String(data: buffer, encoding: .utf8), let url = http.url else { finish(); return }
+            guard let text = String(data: buffer, encoding: .utf8), let url = http.url else { failHTTP(); return }
             let body = Data(rewrite(text, url).utf8)
             var output = headers(http, length: body.count); output.append(body)
             connection.send(content: output, completion: .contentProcessed { [weak self] _ in self?.finish() })
