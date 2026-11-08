@@ -10,7 +10,7 @@ final class HLSProxy {
     private var routes: [String: URL] = [:]
     private var reverseRoutes: [URL: URL] = [:]
     private var connections: [ObjectIdentifier: NWConnection] = [:]
-    private var tasks: [ObjectIdentifier: URLSessionDataTask] = [:]
+    private var tasks: [ObjectIdentifier: URLSessionTask] = [:]
     private var port: UInt16 = 0
     init(headers: [String: String], cookies: [HTTPCookie]) {
         self.headers = headers
@@ -92,18 +92,43 @@ final class HLSProxy {
         for line in lines.dropFirst() where line.lowercased().hasPrefix("range:") {
             request.setValue(String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces), forHTTPHeaderField: "Range")
         }
-        let task = session.dataTask(with: request) { [weak self, weak connection] data, response, error in
+        let isHead = request.httpMethod == "HEAD"
+        let task = session.downloadTask(with: request) { [weak self, weak connection] temporary, response, error in
             guard let self, let connection else { return }
+            // URLSession removes its temporary file after this callback returns.
+            let owned = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+            do {
+                guard error == nil, let temporary else { throw error ?? URLError(.badServerResponse) }
+                try FileManager.default.moveItem(at: temporary, to: owned)
+            } catch {
+                self.queue.async { self.reply(connection, status: 502, data: Data(), headers: [:]) }
+                return
+            }
             self.queue.async {
-                guard error == nil, let http = response as? HTTPURLResponse else { self.reply(connection, status: 502, data: Data(), headers: [:]); return }
-                var body = data ?? Data()
+                guard self.connections[ObjectIdentifier(connection)] != nil, let http = response as? HTTPURLResponse else { try? FileManager.default.removeItem(at: owned); return }
                 var forwarded: [String: String] = [:]
                 for key in ["Content-Type", "Content-Range", "Accept-Ranges"] { forwarded[key] = http.value(forHTTPHeaderField: key) }
-                if body.starts(with: Data("#EXTM3U".utf8)), let playlist = String(data: body, encoding: .utf8) {
-                    body = Data(self.rewrite(playlist, base: http.url ?? url).utf8)
-                    forwarded["Content-Type"] = "application/vnd.apple.mpegurl"
-                }
-                self.reply(connection, status: http.statusCode, data: body, headers: forwarded)
+                do {
+                    let handle = try FileHandle(forReadingFrom: owned)
+                    let prefix = try handle.read(upToCount: 7) ?? Data()
+                    try handle.seek(toOffset: 0)
+                    if prefix.starts(with: Data("#EXTM3U".utf8)) {
+                        defer { try? handle.close(); try? FileManager.default.removeItem(at: owned) }
+                        let body = try handle.read(upToCount: 2 * 1024 * 1024 + 1) ?? Data()
+                        guard body.count <= 2 * 1024 * 1024, let playlist = String(data: body, encoding: .utf8) else { throw URLError(.dataLengthExceedsMaximum) }
+                        forwarded["Content-Type"] = "application/vnd.apple.mpegurl"
+                        self.reply(connection, status: http.statusCode, data: Data(self.rewrite(playlist, base: http.url ?? url).utf8), headers: forwarded)
+                    } else {
+                        let size = (try FileManager.default.attributesOfItem(atPath: owned.path)[.size] as? NSNumber)?.int64Value ?? 0
+                        let length = isHead ? (Int64(http.value(forHTTPHeaderField: "Content-Length") ?? "") ?? 0) : size
+                        let head = self.responseHead(status: http.statusCode, length: length, headers: forwarded)
+                        connection.send(content: Data(head.utf8), completion: .contentProcessed { [weak self] error in
+                            guard let self else { try? handle.close(); try? FileManager.default.removeItem(at: owned); return }
+                            if error != nil || isHead { try? handle.close(); try? FileManager.default.removeItem(at: owned); self.close(connection) }
+                            else { self.sendFile(handle, path: owned, connection: connection) }
+                        })
+                    }
+                } catch { try? FileManager.default.removeItem(at: owned); self.reply(connection, status: 502, data: Data(), headers: [:]) }
             }
         }
         tasks[ObjectIdentifier(connection)] = task; task.resume()
@@ -112,10 +137,25 @@ final class HLSProxy {
         HLSPlaylist.rewrite(playlist, base: base, route: route)
     }
     private func reply(_ connection: NWConnection, status: Int, data: Data, headers: [String: String]) {
-        var head = "HTTP/1.1 \(status) Response\r\nConnection: close\r\nContent-Length: \(data.count)\r\n"
-        for (key, value) in headers { head += "\(key): \(value.replacingOccurrences(of: "\r", with: "").replacingOccurrences(of: "\n", with: ""))\r\n" }
-        var response = Data((head + "\r\n").utf8); response.append(data)
+        let head = responseHead(status: status, length: Int64(data.count), headers: headers)
+        var response = Data(head.utf8); response.append(data)
         connection.send(content: response, completion: .contentProcessed { [weak self] _ in self?.close(connection) })
+    }
+    private func responseHead(status: Int, length: Int64, headers: [String: String]) -> String {
+        var head = "HTTP/1.1 \(status) Response\r\nConnection: close\r\nContent-Length: \(length)\r\n"
+        for (key, value) in headers { head += "\(key): \(value.replacingOccurrences(of: "\r", with: "").replacingOccurrences(of: "\n", with: ""))\r\n" }
+        return head + "\r\n"
+    }
+    private func sendFile(_ handle: FileHandle, path: URL, connection: NWConnection) {
+        do {
+            guard connections[ObjectIdentifier(connection)] != nil else { throw URLError(.cancelled) }
+            let chunk = try handle.read(upToCount: 65536) ?? Data()
+            guard !chunk.isEmpty else { try? handle.close(); try? FileManager.default.removeItem(at: path); close(connection); return }
+            connection.send(content: chunk, completion: .contentProcessed { [weak self] error in
+                guard let self, error == nil else { try? handle.close(); try? FileManager.default.removeItem(at: path); connection.cancel(); return }
+                self.sendFile(handle, path: path, connection: connection)
+            })
+        } catch { try? handle.close(); try? FileManager.default.removeItem(at: path); close(connection) }
     }
     func stop() {
         queue.async { self.listener?.cancel(); self.listener = nil; Array(self.connections.values).forEach { self.close($0) }; self.routes.removeAll(); self.reverseRoutes.removeAll(); self.session.invalidateAndCancel() }
