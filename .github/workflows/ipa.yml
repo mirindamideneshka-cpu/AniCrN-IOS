@@ -14,6 +14,8 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+      - name: Web stream capture regression test
+        run: node tests/stream-capture.mjs
       - name: Playlist transport regression tests
         run: |
           mkdir -p transport-tests/Sources
