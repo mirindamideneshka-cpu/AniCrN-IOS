@@ -8,6 +8,7 @@ final class HLSProxy {
     private let session: URLSession
     private var listener: NWListener?
     private var routes: [String: URL] = [:]
+    private var reverseRoutes: [URL: URL] = [:]
     private var connections: [ObjectIdentifier: NWConnection] = [:]
     private var tasks: [ObjectIdentifier: URLSessionDataTask] = [:]
     private var port: UInt16 = 0
@@ -46,9 +47,12 @@ final class HLSProxy {
         }
     }
     private func route(_ url: URL) -> URL {
+        if let existing = reverseRoutes[url] { return existing }
         let key = UUID().uuidString + "." + (url.pathExtension.isEmpty ? "bin" : url.pathExtension)
         routes["/" + key] = url
-        return URL(string: "http://127.0.0.1:\(port)/\(key)")!
+        let local = URL(string: "http://127.0.0.1:\(port)/\(key)")!
+        reverseRoutes[url] = local
+        return local
     }
     private func accept(_ connection: NWConnection) {
         let id = ObjectIdentifier(connection)
@@ -114,6 +118,6 @@ final class HLSProxy {
         connection.send(content: response, completion: .contentProcessed { [weak self] _ in self?.close(connection) })
     }
     func stop() {
-        queue.async { self.listener?.cancel(); self.listener = nil; Array(self.connections.values).forEach { self.close($0) }; self.routes.removeAll(); self.session.invalidateAndCancel() }
+        queue.async { self.listener?.cancel(); self.listener = nil; Array(self.connections.values).forEach { self.close($0) }; self.routes.removeAll(); self.reverseRoutes.removeAll(); self.session.invalidateAndCancel() }
     }
 }

@@ -11,6 +11,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Playlist transport regression tests
         run: |
+          mkdir -p transport-tests/Sources
           cp ios/AniCrN/HLSPlaylist.swift transport-tests/Sources/HLSPlaylist.swift
           swift test --package-path transport-tests
       - name: Rust tests and device library
