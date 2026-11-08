@@ -42,6 +42,28 @@ struct EmbeddedReleaseView: View {
                         guard let url = c.url, seen.insert(url.absoluteString).inserted else { continue }
                         entries.append(ProviderEntry(id: url.absoluteString, title: "Сезон \(season) · серия \(episode)", url: url))
                     }
+                    let seasons = try playerDoc.select(".serial-seasons-box option[value]").array()
+                    for seasonOption in seasons {
+                        try Task.checkCancellation()
+                        let other = try seasonOption.attr("value")
+                        guard other != season, let number = Int(other), number > 0 else { continue }
+                        var seasonURL = URLComponents(url: iframe, resolvingAgainstBaseURL: true)!
+                        seasonURL.queryItems = (seasonURL.queryItems ?? []).filter { !["season", "episode"].contains($0.name) } + [URLQueryItem(name: "season", value: other)]
+                        guard let url = seasonURL.url else { continue }
+                        // Keep the season available even if its episode HTML cannot be fetched.
+                        entries.append(ProviderEntry(id: "season-" + other, title: "Сезон \(other) · веб-плеер", url: url))
+                        let otherHTML = try await HTMLProviders.get(url, referer: page)
+                        let otherDoc = try SwiftSoup.parse(otherHTML)
+                        for option in try otherDoc.select(".serial-series-box option[data-id][data-hash]").array() {
+                            if try option.attr("data-other-translation") == "true" { continue }
+                            let episode = try option.attr("value")
+                            guard let value = Int(episode), value > 0 else { continue }
+                            var selected = seasonURL
+                            selected.queryItems = (selected.queryItems ?? []) + [URLQueryItem(name: "episode", value: episode)]
+                            guard let selectedURL = selected.url, seen.insert(selectedURL.absoluteString).inserted else { continue }
+                            entries.append(ProviderEntry(id: selectedURL.absoluteString, title: "Сезон \(other) · серия \(episode)", url: selectedURL))
+                        }
+                    }
                 }
             } catch { self.error = error.localizedDescription }
             loading = false
