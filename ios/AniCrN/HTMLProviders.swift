@@ -87,19 +87,7 @@ enum HTMLProviders {
                 }
             }
         }
-        var seen = Set<String>()
-        return try fragments.flatMap { fragment -> [ProviderEntry] in
-            let doc = try SwiftSoup.parse(fragment)
-            let modern = try doc.select("[data-episode]").array()
-            let legacy = try doc.select("select[name=series] option[value]").array()
-            return try (legacy.isEmpty ? modern : legacy).compactMap { item in
-                let id = try item.attr(legacy.isEmpty ? "data-episode" : "value")
-                guard !id.isEmpty, seen.insert(id).inserted else { return nil }
-                let name = try item.attr("data-episode-title")
-                let number = try item.attr("data-episode-number")
-                return ProviderEntry(id: id, title: name.isEmpty ? (try item.text().isEmpty ? "Серия " + number : item.text()) : name, url: nil)
-            }
-        }
+        return try AnimeGoEpisodeParser.parse(fragments).map { ProviderEntry(id: $0.id, title: $0.title, url: nil) }
     }
     static func voices(_ episode: String) async throws -> [ProviderEntry] {
         let base = AnimeSource.animego.site
