@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftSoup
 
 enum DirectStreamResolver {
     static func streams(in text: String, base: URL) throws -> [URL] {
@@ -39,7 +40,8 @@ struct ResolvedPlayerView: View {
             if let error { Text(error).foregroundStyle(.red) }
             ForEach(streams, id: \.absoluteString) { url in
                 NavigationLink("Прямой поток · " + url.pathExtension.uppercased()) {
-                    PlaybackView(url: url, headers: ["Referer": referer.absoluteString, "Origin": "https://" + (referer.host ?? "")])
+                    let mediaReferer = isVost ? referer : player
+                    PlaybackView(url: url, headers: ["Referer": mediaReferer.absoluteString, "Origin": (mediaReferer.scheme ?? "https") + "://" + (mediaReferer.host ?? "")])
                 }
             }
             NavigationLink("Открыть веб-плеер и перехватить поток") { WebSourceView(initialURL: player, referer: referer) }
@@ -52,6 +54,15 @@ struct ResolvedPlayerView: View {
                 }
                 let text = try await HTMLProviders.get(endpoint, referer: referer)
                 streams = try DirectStreamResolver.streams(in: text, base: endpoint)
+                if endpoint.host == "aniboom.one" || endpoint.host?.hasSuffix(".aniboom.one") == true {
+                    let doc = try SwiftSoup.parse(text)
+                    if let raw = try doc.select("video[data-parameters]").first()?.attr("data-parameters"),
+                       let data = raw.data(using: .utf8), let parameters = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                        var hls = parameters["hls"] as? [String: Any]
+                        if let nested = parameters["hls"] as? String, let nestedData = nested.data(using: .utf8) { hls = try JSONSerialization.jsonObject(with: nestedData) as? [String: Any] }
+                        if let raw = hls?["src"] as? String, let url = HTMLProviders.absolute(raw, base: endpoint), !streams.contains(url) { streams.insert(url, at: 0) }
+                    }
+                }
                 if streams.isEmpty && endpoint.host?.contains("sibnet.ru") == true {
                     let regex = try NSRegularExpression(pattern: #"src:\s*["']([^"']+\.mp4[^"']*)["']"#)
                     for match in regex.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
