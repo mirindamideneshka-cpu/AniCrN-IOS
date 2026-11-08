@@ -42,7 +42,7 @@ enum Provider {
 
 @main
 struct AniCrNApp: App {
-    var body: some Scene { WindowGroup { CatalogView().preferredColorScheme(.dark) } }
+    var body: some Scene { WindowGroup { SourcesView().preferredColorScheme(.dark) } }
 }
 
 struct CatalogView: View {

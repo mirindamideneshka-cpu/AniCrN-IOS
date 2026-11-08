@@ -80,6 +80,10 @@ struct StreamCaptureBrowser: UIViewRepresentable {
 }
 
 struct WebSourceView: View {
+    init(initialURL: URL = URL(string: "https://animego.me")!) {
+        _address = State(initialValue: initialURL.absoluteString)
+        _page = State(initialValue: initialURL)
+    }
     @State private var address = "https://animego.me"
     @State private var page: URL?
     @State private var streams: [CapturedStream] = []
