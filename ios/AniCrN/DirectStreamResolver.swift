@@ -52,6 +52,13 @@ struct ResolvedPlayerView: View {
                 }
                 let text = try await HTMLProviders.get(endpoint, referer: referer)
                 streams = try DirectStreamResolver.streams(in: text, base: endpoint)
+                if streams.isEmpty && endpoint.host?.contains("sibnet.ru") == true {
+                    let regex = try NSRegularExpression(pattern: #"src:\s*["']([^"']+\.mp4[^"']*)["']"#)
+                    for match in regex.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
+                        guard let range = Range(match.range(at: 1), in: text), let url = HTMLProviders.absolute(String(text[range]), base: endpoint) else { continue }
+                        if !streams.contains(url) { streams.append(url) }
+                    }
+                }
             } catch { self.error = error.localizedDescription }
             loading = false
         }
