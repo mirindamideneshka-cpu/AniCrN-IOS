@@ -2,6 +2,21 @@ use serde_json::{json, Value};
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
 
+fn extract_streams(input: &str) -> Vec<String> {
+    let decoded = input.replace("\\/", "/").replace("\\u0026", "&").replace("&amp;", "&");
+    let regex = regex::Regex::new(r#"(?i)(?:https?:)?//[^"'<>\s\\]+\.(?:m3u8|mp4)(?:\?[^"'<>\s\\]*)?"#).expect("constant regex");
+    let mut seen = std::collections::HashSet::new();
+    regex.find_iter(&decoded).map(|m| m.as_str().to_owned()).filter(|s| seen.insert(s.clone())).collect()
+}
+
+/// Input is a valid null-terminated UTF-8 string. Output is freed with anicrn_free.
+#[no_mangle]
+pub unsafe extern "C" fn anicrn_extract_streams(input: *const c_char) -> *mut c_char {
+    if input.is_null() { return std::ptr::null_mut(); }
+    let result = CStr::from_ptr(input).to_str().ok().and_then(|s| serde_json::to_string(&extract_streams(s)).ok());
+    result.and_then(|s| CString::new(s).ok()).map(CString::into_raw).unwrap_or(std::ptr::null_mut())
+}
+
 // Swift owns network requests; Rust normalizes provider responses.
 fn normalize(input: &str) -> Result<String, serde_json::Error> {
     let root: Value = serde_json::from_str(input)?;
@@ -36,6 +51,16 @@ pub unsafe extern "C" fn anicrn_free(value: *mut c_char) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn extracts_signed_alternatives_without_losing_queries() {
+        let values = extract_streams("https://cdn.test/a.mp4?md5=abc&time=12 or https://backup.test/a.mp4?md5=abc&time=12");
+        assert_eq!(values, vec!["https://cdn.test/a.mp4?md5=abc&time=12", "https://backup.test/a.mp4?md5=abc&time=12"]);
+    }
+    #[test]
+    fn decodes_escaped_hls_and_deduplicates() {
+        let values = extract_streams(r#""https:\/\/cdn.test/a.m3u8?x=1\u0026y=2" "https://cdn.test/a.m3u8?x=1&amp;y=2" blob:fake"#);
+        assert_eq!(values, vec!["https://cdn.test/a.m3u8?x=1&y=2"]);
+    }
     #[test]
     fn normalizes_wrapped_release() {
         let v: Value = serde_json::from_str(&normalize(r#"{"data":[{"id":1,"name":{"main":"Тест"},"poster":{"preview":"/a.jpg"}}]}"#).unwrap()).unwrap();
