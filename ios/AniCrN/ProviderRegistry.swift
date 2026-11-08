@@ -36,6 +36,8 @@ struct SourcesView: View {
                 Section("Нативный API") {
                     NavigationLink("AniLiberty · каталог и серии") { CatalogView() }
                     NavigationLink("AnimeLib · каталог и серии") { AnimeLibCatalogView() }
+                    NavigationLink("AnimeGo · каталог и серии") { HTMLCatalogView(source: .animego) }
+                    NavigationLink("AnimeFox · каталог") { HTMLCatalogView(source: .animefox) }
                 }
                 Section("Веб-источники · поиск и выбор на сайте") {
                     ForEach(AnimeSource.allCases) { source in
