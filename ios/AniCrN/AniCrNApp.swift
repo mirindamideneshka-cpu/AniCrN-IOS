@@ -21,10 +21,10 @@ enum Provider {
         return data
     }
 
-    static func catalog(query: String) async throws -> [Anime] {
+    static func catalog(query: String, page: Int = 1) async throws -> [Anime] {
         let query = query.trimmingCharacters(in: .whitespacesAndNewlines)
         let path: String
-        if query.isEmpty { path = "/anime/catalog/releases?page=1&limit=40" }
+        if query.isEmpty { path = "/anime/catalog/releases?page=\(page)&limit=40" }
         else {
             var parts = URLComponents()
             parts.queryItems = [URLQueryItem(name: "query", value: query)]
@@ -50,6 +50,7 @@ struct CatalogView: View {
     @State private var query = ""
     @State private var error: String?
     @State private var loading = false
+    @State private var page = 1
     var body: some View {
         NavigationStack {
             ScrollView {
@@ -69,17 +70,25 @@ struct CatalogView: View {
                         }.buttonStyle(.plain)
                     }
                 }.padding()
+                if query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    HStack {
+                        Button("Назад") { page = max(1, page - 1) }.disabled(page == 1 || loading)
+                        Text("Страница \(page)")
+                        Button("Далее") { page += 1 }.disabled(loading || titles.isEmpty)
+                    }.padding()
+                }
             }
             .navigationTitle("AniCrN")
             .toolbar { NavigationLink { WebSourceView() } label: { Label("Веб-источник", systemImage: "network") } }
             .searchable(text: $query, prompt: "Поиск AniLiberty")
             .navigationDestination(for: Anime.self) { DetailView(anime: $0) }
-            .task(id: query) {
+            .onChange(of: query) { _ in page = 1 }
+            .task(id: "\(query):\(page)") {
                 loading = true
                 error = nil
                 do {
                     try await Task.sleep(nanoseconds: 350_000_000)
-                    let results = try await Provider.catalog(query: query)
+                    let results = try await Provider.catalog(query: query, page: page)
                     try Task.checkCancellation()
                     titles = results
                     loading = false

@@ -24,6 +24,19 @@ struct EmbeddedReleaseView: View {
                     guard let url = try HTMLProviders.absolute(iframe.attr("src"), base: page), seen.insert(url.absoluteString).inserted else { return nil }
                     return ProviderEntry(id: url.absoluteString, title: "Плеер · " + (url.host ?? source.title), url: url)
                 }
+                if source == .animefox && entries.isEmpty {
+                    let prefix = page.lastPathComponent.split(separator: "-").first.map(String.init) ?? ""
+                    if !prefix.isEmpty && prefix.allSatisfy(\.isNumber) {
+                        let endpoint = URL(string: "/engine/ajax/iframePlayer.php", relativeTo: page)!.absoluteURL
+                        let raw = try await HTMLProviders.get(endpoint, referer: page, form: [URLQueryItem(name: "post_id", value: prefix), URLQueryItem(name: "select", value: "")])
+                        guard let data = raw.data(using: .utf8), let root = try JSONSerialization.jsonObject(with: data) as? [String: Any], let playerHTML = root["player"] as? String else { throw URLError(.cannotParseResponse) }
+                        let fallback = try SwiftSoup.parse(playerHTML)
+                        for iframe in try fallback.select("iframe[src]").array() {
+                            guard let url = try HTMLProviders.absolute(iframe.attr("src"), base: page), seen.insert(url.absoluteString).inserted else { continue }
+                            entries.append(ProviderEntry(id: url.absoluteString, title: "Плеер AnimeFox", url: url))
+                        }
+                    }
+                }
                 if source == .animevost {
                     entries += try DirectStreamResolver.vostPlayers(in: html, page: page)
                 }
