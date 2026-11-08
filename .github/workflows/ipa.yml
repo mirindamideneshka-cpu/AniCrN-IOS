@@ -24,6 +24,7 @@ jobs:
           cp ios/AniCrN/HLSHTTPTransfer.swift transport-tests/Sources/HLSHTTPTransfer.swift
           cp ios/AniCrN/MediaRouteCodec.swift transport-tests/Sources/MediaRouteCodec.swift
           cp ios/AniCrN/ProviderHTMLParser.swift transport-tests/Sources/ProviderHTMLParser.swift
+          cp ios/AniCrN/HostStreamParser.swift transport-tests/Sources/HostStreamParser.swift
           cp ios/AniCrN/YummySlug.swift transport-tests/Sources/YummySlug.swift
           cp ios/AniCrN/YummyVideoParser.swift transport-tests/Sources/YummyVideoParser.swift
           swift test --package-path transport-tests
