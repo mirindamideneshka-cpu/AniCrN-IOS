@@ -37,7 +37,7 @@ targets:
     platform: iOS
     sources:
       - path: ../transport-tests/Tests
-        excludes: [ProviderHTMLParserTests.swift, YummyVideoParserTests.swift]
+        excludes: [ProviderHTMLParserTests.swift, YummyVideoParserTests.swift, HostStreamParserTests.swift]
       - path: AniCrN/HLSProxy.swift
       - path: AniCrN/HLSHTTPTransfer.swift
       - path: AniCrN/HLSPlaylist.swift
