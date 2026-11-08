@@ -32,6 +32,15 @@ targets:
         OTHER_LDFLAGS: $(inherited) -lanicrn_core
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
+  TransportHost:
+    type: application
+    platform: iOS
+    sources: [TransportHost]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.anicrn.transporthost
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
   TransportTests:
     type: bundle.unit-test
     platform: iOS
@@ -50,8 +59,12 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.anicrn.transporttests
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/TransportHost.app/TransportHost
+        BUNDLE_LOADER: $(TEST_HOST)
         GENERATE_INFOPLIST_FILE: YES
         SWIFT_VERSION: "5.0"
+    dependencies:
+      - target: TransportHost
 schemes:
   AniCrN:
     build:

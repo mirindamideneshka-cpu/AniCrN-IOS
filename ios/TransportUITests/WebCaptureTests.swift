@@ -18,6 +18,9 @@ final class WebCaptureTests: XCTestCase, WKScriptMessageHandler {
         defer { controller.removeScriptMessageHandler(forName: "anicrnStream") }
         controller.addUserScript(WKUserScript(source: StreamCaptureBrowser.script, injectionTime: .atDocumentStart, forMainFrameOnly: false))
         let view = WKWebView(frame: CGRect(x: 0, y: 0, width: 320, height: 480), configuration: configuration)
+        let window = try XCTUnwrap(UIApplication.shared.windows.first(where: { $0.isKeyWindow }))
+        window.rootViewController?.view.addSubview(view)
+        defer { view.removeFromSuperview() }
         received = expectation(description: "WebKit captured media")
         received?.expectedFulfillmentCount = 2
         view.loadHTMLString("<html><body><video src='https://fixture.invalid/stream.m3u8?sig=abc'></video><iframe srcdoc=\"&lt;video src='https://fixture.invalid/frame.m3u8'&gt;&lt;/video&gt;\"></iframe></body></html>", baseURL: URL(string: "https://source.invalid/"))

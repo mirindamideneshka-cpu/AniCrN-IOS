@@ -33,7 +33,10 @@ enum YummyAPI {
         }.first
         guard let id else { return nil }
         let normalized = id.components(separatedBy: "/catalog/item/").last?.trimmingCharacters(in: CharacterSet(charactersIn: "/")) ?? id
-        return Anime(id: normalized, title: row["title"] as? String ?? normalized, description: row["description"] as? String ?? "", poster: "")
+        let image = row["poster"] as? [String: Any]
+        let raw = image?["big"] as? String ?? image?["medium"] as? String ?? row["poster_url"] as? String ?? ""
+        let poster = raw.isEmpty ? "" : HTMLProviders.absolute(raw, base: AnimeSource.yummyanime.site)?.absoluteString ?? ""
+        return Anime(id: normalized, title: row["title"] as? String ?? normalized, description: row["description"] as? String ?? "", poster: poster)
     }
 }
 
